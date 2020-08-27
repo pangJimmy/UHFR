@@ -124,7 +124,7 @@ public class UHFRManager {
     }
 
     public READER_ERR asyncStartReading() {
-        return reader.AsyncStartReading(ants, 1, (2 << 8));
+        return reader.AsyncStartReading(ants, 1, 16);
     }
 
     public READER_ERR asyncStopReading() {

@@ -15,7 +15,7 @@ android {
 
     applicationVariants.all { variant ->
         variant.outputs.all {
-            def fileName = "uhfr_com13rfid_v${defaultConfig.versionName}.apk"
+            def fileName = "uhfr_v${defaultConfig.versionName}.apk"
             outputFileName = fileName
         }
     }
