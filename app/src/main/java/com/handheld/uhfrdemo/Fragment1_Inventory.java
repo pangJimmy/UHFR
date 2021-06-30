@@ -27,6 +27,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.handheld.uhfr.R;
+import com.handheld.uhfr.UHFRManager;
+import com.uhf.api.cls.Reader;
 import com.uhf.api.cls.Reader.TAGINFO;
 
 import java.io.File;
@@ -59,6 +61,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
     private TextView tvTagSum;//tag sum text view
     private TextView tvRunCount;//tag sum text view
     private TextView tvTitle;//tag sum text view
+    private TextView tvErr;
 
     private ListView lvEpc;// epc list view
     private Button btnStart;//inventory button
@@ -150,6 +153,8 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                     btnTime.setEnabled(true);
                     showToast("Schedule inventory finished!");
                     break;
+                case 404:// error info
+                    tvErr.setText(UHFRManager.mErr.name());
                 default:
                     break;
             }
@@ -182,6 +187,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
         tvTagSum = (TextView) view.findViewById(R.id.textView_tag);
         tvRunCount = (TextView) view.findViewById(R.id.textView_run_count);
         tvTitle = (TextView) view.findViewById(R.id.tv_title);
+        tvErr = (TextView) view.findViewById(R.id.textView_err);
         checkMulti = (CheckBox) view.findViewById(R.id.checkBox_multi);
         checkTid = (CheckBox) view.findViewById(R.id.checkBox_tid);
         checkPlay = (CheckBox) view.findViewById(R.id.checkBox_sound);
@@ -287,6 +293,12 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             }
             String data;
             handler1.sendEmptyMessage(1980);
+            if (list1 == null) {
+                // error info, Stop Inventory
+                handler1.sendEmptyMessage(404);
+                onClick(btnStart);
+                return;
+            }
             if (list1 != null && list1.size() > 0) {//
                 Log.e(TGA, list1.size() + "");
                 if (isPlay) {
@@ -329,6 +341,11 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             }
             String data;
             handler1.sendEmptyMessage(1980);
+            if (list1 == null) {
+                // error info, Stop schedule inventory
+                handler1.sendEmptyMessage(404);
+                onClick(btnTime);
+            }
             if (list1 != null && list1.size() > 0) {
                 Log.e(TGA, list1.size() + "");
                 if (isPlay) {
@@ -369,6 +386,8 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             return;
         }
         if (!isStart) {
+            // Clear err info
+            tvErr.setText("");
             checkMulti.setEnabled(false);
             btnStart.setText(this.getString(R.string.stop_inventory_epc));
             MainActivity.mUhfrManager.setGen2session(isMulti);
@@ -396,6 +415,8 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             return;
         }
         if (!isStart) {
+            // Clear err info
+            tvErr.setText("");
             checkMulti.setEnabled(false);
             btnStart.setText(this.getString(R.string.stop_inventory_epc));
             MainActivity.mUhfrManager.setGen2session(isMulti);
@@ -527,7 +548,8 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                 if ((//keyCode == KeyEvent.KEYCODE_F1 || keyCode == KeyEvent.KEYCODE_F2
                         keyCode == KeyEvent.KEYCODE_F3 ||
 //                                 keyCode == KeyEvent.KEYCODE_F4 ||
-                                keyCode == KeyEvent.KEYCODE_F4)) {
+                                keyCode == KeyEvent.KEYCODE_F4
+                || keyCode == KeyEvent.KEYCODE_F7)) {
 //                Log.e("key ","inventory.... " ) ;
                     onClick(btnStart);
                 }

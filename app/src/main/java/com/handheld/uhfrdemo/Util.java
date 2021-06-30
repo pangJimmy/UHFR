@@ -21,7 +21,7 @@ public class Util {
 		Util.context = context;
 		sp = new SoundPool(1, AudioManager.STREAM_MUSIC, 1);
 		suondMap = new HashMap<Integer, Integer>();
-		suondMap.put(1, sp.load(context, R.raw.scan, 1));
+		suondMap.put(1, sp.load(context, R.raw.barcodebeep, 1));
 	}
 
 	//

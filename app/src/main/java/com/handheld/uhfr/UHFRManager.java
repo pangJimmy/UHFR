@@ -35,6 +35,7 @@ public class UHFRManager {
     private int ant = 1;
     private static int port = 13;
     public deviceVersion dv;
+    public static READER_ERR mErr;
 
     /**
      * init Uhf module
@@ -168,6 +169,10 @@ public class UHFRManager {
         int[] tagcnt = new int[1];
         tagcnt[0] = 0;
         er = reader.AsyncGetTagCount(tagcnt);
+        if (er != READER_ERR.MT_OK_ERR) {
+            mErr = er;
+            return null;
+        }
         for (int i = 0; i < tagcnt[0]; i++) {
             TAGINFO tfs = reader.new TAGINFO();
             er = reader.AsyncGetNextTag(tfs);
@@ -197,6 +202,10 @@ public class UHFRManager {
         READER_ERR er;
         int[] tagcnt = new int[1];
         er = reader.TagInventory_Raw(ants, 1, (short) readtime, tagcnt);
+        if (er != READER_ERR.MT_OK_ERR) {
+            mErr = er;
+            return null;
+        }
         for (int i = 0; i < tagcnt[0]; i++) {
             TAGINFO tfs = reader.new TAGINFO();
             er = reader.GetNextTag(tfs);
@@ -225,6 +234,10 @@ public class UHFRManager {
 
         int[] tagcnt = new int[1];
         er = reader.TagInventory_Raw(ants, 1, (short) readtime, tagcnt);
+        if (er != READER_ERR.MT_OK_ERR) {
+            mErr = er;
+            return null;
+        }
         for (int i = 0; i < tagcnt[0]; i++) {
             TAGINFO tfs = reader.new TAGINFO();
             er = reader.GetNextTag(tfs);
