@@ -28,7 +28,6 @@ import android.widget.Toast;
 
 import com.handheld.uhfr.R;
 import com.handheld.uhfr.UHFRManager;
-import com.uhf.api.cls.Reader;
 import com.uhf.api.cls.Reader.TAGINFO;
 
 import java.io.File;
@@ -41,8 +40,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import cn.pda.serialport.Tools;
 import jxl.Workbook;
@@ -280,13 +277,17 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
 
         @Override
         public void run() {
+            Thread t = Thread.currentThread();
+            String name = t.getName();
+            System.out.println("name=" + name);
             List<TAGINFO> list1;
             if (isMulti) {
                 Log.e(TGA, "runnable-isMulti-true");
                 list1 = MainActivity.mUhfrManager.tagInventoryRealTime();
             } else {
                 if (isTid) {
-                    list1 = MainActivity.mUhfrManager.tagEpcTidInventoryByTimer((short) 50);
+//                    list1 = MainActivity.mUhfrManager.tagEpcTidInventoryByTimer((short) 50);
+                    list1 = MainActivity.mUhfrManager.tagEpcOtherInventoryByTimer((short) 50, 3, 0, 2, Tools.HexString2Bytes("00000000"));
                 } else {
                     list1 = MainActivity.mUhfrManager.tagInventoryByTimer((short) 50);
                 }
@@ -328,6 +329,9 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
     private Runnable runnable_MainActivity1 = new Runnable() {
         @Override
         public void run() {
+            Thread t = Thread.currentThread();
+            String name = t.getName();
+            System.out.println("name=" + name);
             List<TAGINFO> list1;
             if (isMulti) {
                 Log.e(TGA, "[ScheduleInventoryTask] multi read");
@@ -344,7 +348,9 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             if (list1 == null) {
                 // error info, Stop schedule inventory
                 handler1.sendEmptyMessage(404);
-                onClick(btnTime);
+                isRead();
+                handler1.sendEmptyMessage(1000);
+                return;
             }
             if (list1 != null && list1.size() > 0) {
                 Log.e(TGA, list1.size() + "");

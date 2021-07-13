@@ -25,46 +25,39 @@ import java.util.ArrayList;
 import java.util.List;
 
 import cn.pda.serialport.SerialPort;
-import cn.pda.serialport.Tools;
 
-/**
- * @author LeiHuang
- */
-public class UHFRManager {
+public class UHFRManagerBank {
 
     private static SerialPort sSerialPort;
-    private final String tag = "UHFRManager";
+    private String tag = "UHFRManager";
     private static Reader reader;
-    private final int[] ants = new int[]{1};
-    private final int ant = 1;
+    private int[] ants = new int[]{1};
+    private int ant = 1;
+    private static int port = 13;
     public deviceVersion dv;
     public static READER_ERR mErr;
-    private int bank = 2;
-    private int startaddr = 0;
-    private int bytecnt = 12;
-    private byte[] accesspwd = null;
-
-    /**
-     * 是否开启了附加数据（作用域只在于本app中，非模块），避免每次调用盘存方法都需要设置该项
-     */
-    private boolean MTR_PARAM_TAG_EMBEDEDDATA = true;
 
     /**
      * init Uhf module
      *
      * @return UHFRManager
      */
-    public static UHFRManager getInstance() {
+    public static UHFRManagerBank getInstance() {
+
         if (connect()) {
-            return new UHFRManager();
+            return new UHFRManagerBank();
         }
         return null;
     }
 
+    /**
+     * @return boolean
+     */
     public boolean close() {
         if (reader != null) {
             reader.CloseReader();
         }
+
         sSerialPort.power_5Voff();
         reader = null;
         return true;
@@ -74,8 +67,15 @@ public class UHFRManager {
         HardwareDetails val = reader.new HardwareDetails();
         READER_ERR er = reader.GetHardwareDetails(val);
         if (er == READER_ERR.MT_OK_ERR) {
-            return val.module.toString();
+            String module = val.module.toString();
+            if (module.equals("MODOULE_SLR5100") || module.equals("MODOULE_SLR5200") || module.equals("MODOULE_SLR5300"))
+                module = "uhf-l";
+            if (module.equals("MODOULE_SLR1200") || module.equals("MODOULE_SLR1100") || module.equals("MODOULE_SLR1300"))
+                module = "uhf-r";
+            if (module.equals("MODOULE_M6E_MICRO")) module = "uhf-m";
+            return module;
         }
+//		Log.e(tag,er.toString());
         return null;
     }
 
@@ -118,15 +118,14 @@ public class UHFRManager {
         }
 
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_INVPOTL, ipst);
-        return er == READER_ERR.MT_OK_ERR;
+        if (er == READER_ERR.MT_OK_ERR) {
+            return true;
+        }
+        return false;
     }
 
     public READER_ERR asyncStartReading() {
         return reader.AsyncStartReading(ants, 1, 16);
-    }
-
-    public READER_ERR asyncStartReading(int option) {
-        return reader.AsyncStartReading(ants, 1, option);
     }
 
     public READER_ERR asyncStopReading() {
@@ -135,7 +134,7 @@ public class UHFRManager {
 
     public boolean setInventoryFilter(byte[] fdata, int fbank, int fstartaddr,
                                       boolean matching) {
-        TagFilter_ST g2tf;
+        TagFilter_ST g2tf = null;
         g2tf = reader.new TagFilter_ST();
         g2tf.fdata = fdata;
         g2tf.flen = fdata.length * 8;
@@ -164,16 +163,11 @@ public class UHFRManager {
     }
 
     public List<TAGINFO> tagInventoryRealTime() {
+        reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
         READER_ERR er;
-        if (MTR_PARAM_TAG_EMBEDEDDATA) {
-            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
-            Log.d(tag, "[tagInventoryRealTime] : 0");
-            if (er == READER_ERR.MT_OK_ERR) {
-                MTR_PARAM_TAG_EMBEDEDDATA = false;
-            }
-        }
-        List<TAGINFO> list = new ArrayList<>();
+        List<TAGINFO> list = new ArrayList<TAGINFO>();
         int[] tagcnt = new int[1];
+        tagcnt[0] = 0;
         er = reader.AsyncGetTagCount(tagcnt);
         if (er != READER_ERR.MT_OK_ERR) {
             mErr = er;
@@ -186,8 +180,12 @@ public class UHFRManager {
                 list.add(tfs);
             }
         }
-        return list;
+        if (list.size() >= 0) {
+            return list;
+        }
+        return null;
     }
+
 
     public boolean stopTagInventory() {
         READER_ERR er = reader.AsyncStopReading();
@@ -199,18 +197,11 @@ public class UHFRManager {
     }
 
     public List<TAGINFO> tagInventoryByTimer(short readtime) {
+        reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
+        List<TAGINFO> list = new ArrayList<TAGINFO>();
         READER_ERR er;
-        if (MTR_PARAM_TAG_EMBEDEDDATA) {
-            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
-            Log.d(tag, "[tagInventoryByTimer] : 0");
-            if (er == READER_ERR.MT_OK_ERR) {
-                MTR_PARAM_TAG_EMBEDEDDATA = false;
-            }
-        }
-        List<TAGINFO> list = new ArrayList<>();
-
         int[] tagcnt = new int[1];
-        er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
+        er = reader.TagInventory_Raw(ants, 1, (short) readtime, tagcnt);
         if (er != READER_ERR.MT_OK_ERR) {
             mErr = er;
             return null;
@@ -222,39 +213,31 @@ public class UHFRManager {
                 list.add(tfs);
             }
         }
-        return list;
+        if (list.size() >= 0) {
+            return list;
+        }
+        return null;
     }
 
-    /**
-     * 盘存时附加数据读取tid（非FastTid）
-     */
     public List<TAGINFO> tagEpcTidInventoryByTimer(short readtime) {
-        List<TAGINFO> list = new ArrayList<>();
+        List<TAGINFO> list = new ArrayList<TAGINFO>();
         READER_ERR er;
 
-        if (bank != 2 || startaddr != 0 || bytecnt != 12 || accesspwd != null) {
-            Reader.EmbededData_ST edst = reader.new EmbededData_ST();
-            edst.accesspwd = null;
-            edst.bank = 2;
-            edst.startaddr = 0;
-            edst.bytecnt = 12;
-            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
-            if (er == READER_ERR.MT_OK_ERR) {
-                MTR_PARAM_TAG_EMBEDEDDATA = true;
-                bank = 2;
-                startaddr = 0;
-                bytecnt = 12;
-                accesspwd = null;
-            }
-        }
+        //by lbx 2017-4-27 get tid:
+        Reader.EmbededData_ST edst = reader.new EmbededData_ST();
+        edst.bank = 2;
+        edst.startaddr = 0;
+        edst.bytecnt = 12;
+        edst.accesspwd = null;
+        er = reader.ParamSet(
+                Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
 
         int[] tagcnt = new int[1];
-        er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
+        er = reader.TagInventory_Raw(ants, 1, (short) readtime, tagcnt);
         if (er != READER_ERR.MT_OK_ERR) {
             mErr = er;
             return null;
         }
-
         for (int i = 0; i < tagcnt[0]; i++) {
             TAGINFO tfs = reader.new TAGINFO();
             er = reader.GetNextTag(tfs);
@@ -262,60 +245,27 @@ public class UHFRManager {
                 list.add(tfs);
             }
         }
-        return list;
+        if (list.size() >= 0) {
+            return list;
+        }
+        return null;
     }
 
     public List<TAGINFO> tagEpcOtherInventoryByTimer(short readtime, int bank, int startaddr, int bytecnt, byte[] accesspwd) {
-        List<TAGINFO> list = new ArrayList<>();
+        List<TAGINFO> list = new ArrayList<TAGINFO>();
         READER_ERR er;
 
-        Log.i(tag, "[tagEpcOtherInventoryByTimer] 0: ");
-        if (this.bank == bank && this.startaddr == startaddr && this.bytecnt == bytecnt && this.accesspwd != null) {
-            String newAccesspwd = Tools.Bytes2HexString(accesspwd, accesspwd.length);
-            String oldAccesspwd = Tools.Bytes2HexString(this.accesspwd, this.accesspwd.length);
-            if (!newAccesspwd.equals(oldAccesspwd)) {
-                //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
-                Reader.EmbededData_ST edst = reader.new EmbededData_ST();
-                edst.bank = bank;
-                edst.startaddr = startaddr;
-                edst.bytecnt = bytecnt;
-                edst.accesspwd = accesspwd;
-                er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
-                Log.i(tag, "[tagEpcOtherInventoryByTimer] 1: ");
-                if (er == READER_ERR.MT_OK_ERR) {
-                    MTR_PARAM_TAG_EMBEDEDDATA = true;
-                    this.bank = bank;
-                    this.startaddr = startaddr;
-                    this.bytecnt = bytecnt;
-                    this.accesspwd = accesspwd;
-                }
-            }
-        } else {
-            //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
-            Reader.EmbededData_ST edst = reader.new EmbededData_ST();
-            edst.bank = bank;
-            edst.startaddr = startaddr;
-            edst.bytecnt = bytecnt;
-            edst.accesspwd = accesspwd;
-            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
-            Log.i(tag, "[tagEpcOtherInventoryByTimer] 2: ");
-            if (er == READER_ERR.MT_OK_ERR) {
-                MTR_PARAM_TAG_EMBEDEDDATA = true;
-                this.bank = bank;
-                this.startaddr = startaddr;
-                this.bytecnt = bytecnt;
-                this.accesspwd = accesspwd;
-            }
-        }
-        Log.i(tag, "[tagEpcOtherInventoryByTimer] 3: ");
+        //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
+        Reader.EmbededData_ST edst = reader.new EmbededData_ST();
+        edst.bank = bank;
+        edst.startaddr = startaddr;
+        edst.bytecnt = bytecnt;
+        edst.accesspwd = accesspwd;
+        er = reader.ParamSet(
+                Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
 
         int[] tagcnt = new int[1];
-        er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
-        if (er != READER_ERR.MT_OK_ERR) {
-            mErr = er;
-            return null;
-        }
-
+        er = reader.TagInventory_Raw(ants, 1, (short) readtime, tagcnt);
         for (int i = 0; i < tagcnt[0]; i++) {
             TAGINFO tfs = reader.new TAGINFO();
             er = reader.GetNextTag(tfs);
@@ -323,7 +273,10 @@ public class UHFRManager {
                 list.add(tfs);
             }
         }
-        return list;
+        if (list.size() >= 0) {
+            return list;
+        }
+        return null;
     }
 
     public READER_ERR getTagData(int mbank, int startaddr, int len,
@@ -334,27 +287,29 @@ public class UHFRManager {
             int trycount = 3;
             do {
                 er = reader.GetTagData(ant, (char) mbank, startaddr, len,
-                        rdata, password, timeout);
+                        rdata, password, (short) timeout);
 
                 trycount--;
-                if (trycount < 1) {
+                if (trycount < 1)
                     break;
-                }
             } while (er != READER_ERR.MT_OK_ERR);
 
-            if (er != READER_ERR.MT_OK_ERR) {
+            if (er == READER_ERR.MT_OK_ERR) {
+                return er;
+            } else {
                 Log.e(tag, er.toString());
+                return er;
             }
         } else {
             Log.e(tag, er.toString());
+            return er;
         }
-        return er;
     }
 
     public byte[] getTagDataByFilter(int mbank, int startaddr, int len,
                                      byte[] password, short timeout, byte[] fdata, int fbank,
                                      int fstartaddr, boolean matching) {
-        TagFilter_ST g2tf;
+        TagFilter_ST g2tf = null;
         g2tf = reader.new TagFilter_ST();
         g2tf.fdata = fdata;
         g2tf.flen = fdata.length * 8;
@@ -392,24 +347,26 @@ public class UHFRManager {
                 er = reader.WriteTagData(1, mbank, startaddress, data, datalen,
                         accesspasswd, timeout);
                 trycount--;
-                if (trycount < 1) {
+                if (trycount < 1)
                     break;
-                }
             } while (er != READER_ERR.MT_OK_ERR);
 
-            if (er != READER_ERR.MT_OK_ERR) {
+            if (er == READER_ERR.MT_OK_ERR) {
+                return er;
+            } else {
                 Log.e(tag, er.toString());
+                return er;
             }
         } else {
             Log.e(tag, er.toString());
+            return er;
         }
-        return er;
     }
 
     public READER_ERR writeTagDataByFilter(char mbank, int startaddress,
                                            byte[] data, int datalen, byte[] accesspasswd, short timeout,
                                            byte[] fdata, int fbank, int fstartaddr, boolean matching) {
-        TagFilter_ST g2tf;
+        TagFilter_ST g2tf = null;
         g2tf = reader.new TagFilter_ST();
         g2tf.fdata = fdata;
         g2tf.flen = fdata.length * 8;
@@ -428,18 +385,20 @@ public class UHFRManager {
                 er = reader.WriteTagData(1, mbank, startaddress, data, datalen,
                         accesspasswd, timeout);
                 trycount--;
-                if (trycount < 1) {
+                if (trycount < 1)
                     break;
-                }
             } while (er != READER_ERR.MT_OK_ERR);
 
-            if (er != READER_ERR.MT_OK_ERR) {
+            if (er == READER_ERR.MT_OK_ERR) {
+                return er;
+            } else {
                 Log.e(tag, er.toString());
+                return er;
             }
         } else {
             Log.e(tag, er.toString());
+            return er;
         }
-        return er;
     }
 
     public READER_ERR writeTagEPC(byte[] data, byte[] accesspwd, short timeout) {
@@ -448,22 +407,23 @@ public class UHFRManager {
         do {
             er = reader.WriteTagEpcEx(ant, data, data.length, accesspwd,
                     timeout);
-            if (trycount < 1) {
+            if (trycount < 1)
                 break;
-            }
             trycount--;
         } while (er != READER_ERR.MT_OK_ERR);
 
-        if (er != READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR) {
+            return er;
+        } else {
             Log.e(tag, er.toString());
+            return er;
         }
-        return er;
     }
 
     public READER_ERR writeTagEPCByFilter(byte[] data, byte[] accesspwd,
                                           short timeout, byte[] fdata, int fbank, int fstartaddr,
                                           boolean matching) {
-        TagFilter_ST g2tf;
+        TagFilter_ST g2tf = null;
         g2tf = reader.new TagFilter_ST();
         g2tf.fdata = fdata;
         g2tf.flen = fdata.length * 8;
@@ -490,30 +450,32 @@ public class UHFRManager {
             if (er != READER_ERR.MT_OK_ERR) {
                 Log.e(tag, er.toString());
             }
+            return er;
         } else {
             Log.e(tag, er.toString());
+            return er;
         }
-        return er;
 
     }
 
     public READER_ERR lockTag(Lock_Obj lockobject, Lock_Type locktype,
                               byte[] accesspasswd, short timeout) {
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
-        if (er == READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
             er = reader.LockTag(ant, (byte) lockobject.value(),
                     (short) locktype.value(), accesspasswd, timeout);
-        }
-        if (er != READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
+            return er;
+        else {
             Log.e(tag, er.toString());
+            return er;
         }
-        return er;
     }
 
     public READER_ERR lockTagByFilter(Lock_Obj lockobject, Lock_Type locktype,
                                       byte[] accesspasswd, short timeout, byte[] fdata, int fbank,
                                       int fstartaddr, boolean matching) {
-        TagFilter_ST g2tf;
+        TagFilter_ST g2tf = null;
         g2tf = reader.new TagFilter_ST();
         g2tf.fdata = fdata;
         g2tf.flen = fdata.length * 8;
@@ -526,30 +488,32 @@ public class UHFRManager {
         g2tf.startaddr = fstartaddr * 16;
 
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
-        if (er == READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
             er = reader.LockTag(ant, (byte) lockobject.value(),
                     (short) locktype.value(), accesspasswd, timeout);
-        }
-        if (er != READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
+            return er;
+        else {
             Log.e(tag, er.toString());
+            return er;
         }
-        return er;
     }
 
     public READER_ERR killTag(byte[] killpasswd, short timeout) {
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
-        if (er == READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
             er = reader.KillTag(ant, killpasswd, timeout);
-        }
-        if (er != READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
+            return er;
+        else {
             Log.e(tag, er.toString());
+            return er;
         }
-        return er;
     }
 
     public READER_ERR killTagByFilter(byte[] killpasswd, short timeout,
                                       byte[] fdata, int fbank, int fstartaddr, boolean matching) {
-        TagFilter_ST g2tf;
+        TagFilter_ST g2tf = null;
         g2tf = reader.new TagFilter_ST();
         g2tf.fdata = fdata;
         g2tf.flen = fdata.length * 8;
@@ -562,13 +526,14 @@ public class UHFRManager {
         g2tf.startaddr = fstartaddr * 16;
 
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
-        if (er == READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
             er = reader.KillTag(ant, killpasswd, timeout);
-        }
-        if (er != READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
+            return er;
+        else {
             Log.e(tag, er.toString());
+            return er;
         }
-        return er;
     }
 
     public READER_ERR setRegion(Region_Conf region) {
@@ -579,9 +544,8 @@ public class UHFRManager {
         Region_Conf[] rcf2 = new Region_Conf[1];
         READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_FREQUENCY_REGION,
                 rcf2);
-        if (er == READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
             return rcf2[0];
-        }
         Log.e(tag, er.toString());
         return null;
 
@@ -593,7 +557,7 @@ public class UHFRManager {
                 hdst2);
         int[] tablefre;
         if (er == READER_ERR.MT_OK_ERR) {
-            tablefre = sort(hdst2.htb, hdst2.lenhtb);
+            tablefre = Sort(hdst2.htb, hdst2.lenhtb);
             return tablefre;
         }
         Log.e(tag, er.toString());
@@ -606,6 +570,7 @@ public class UHFRManager {
         hdst.htb = frequencyPoints;
         return reader.ParamSet(Mtr_Param.MTR_PARAM_FREQUENCY_HOPTABLE, hdst);
     }
+
 
     public READER_ERR setPower(int readPower, int writePower) {
         AntPowerConf antPowerConf = reader.new AntPowerConf();
@@ -638,6 +603,7 @@ public class UHFRManager {
      */
     public int getTemperature() {
         int[] val = new int[1];
+        val[0] = 0;
         READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_RF_TEMPERATURE, val);
         if (er == READER_ERR.MT_OK_ERR) {
             return val[0];
@@ -647,24 +613,29 @@ public class UHFRManager {
         }
     }
 
-    @Deprecated
     public READER_ERR setFastMode() {
         READER_ERR er = setPower((short) 30, (short) 30);
-        if (er == READER_ERR.MT_OK_ERR) {
+        if (er == READER_ERR.MT_OK_ERR)
             er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION,
                     new int[]{1});
-        }
         return er;
     }
 
-    @Deprecated
-    public READER_ERR setCancelFastMode() {
+    public READER_ERR setCancleFastMode() {
         return reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION,
                 new int[]{0});
     }
+//	public static byte[] Str2Hex(String buf, int len, byte[] hexbuf) {
+//		byte[] rpaswd = new byte[len];
+//		reader.Str2Hex(buf, len, rpaswd);
+//		return rpaswd;
+//	}
+//	public static void Hex2Str(byte[] buf, int len, char[] out) {
+//		reader.Hex2Str(buf, len, out);
+//	}
 
-    private int[] sort(int[] array, int len) {
-        int tmpIntValue;
+    private int[] Sort(int[] array, int len) {
+        int tmpIntValue = 0;
         for (int xIndex = 0; xIndex < len; xIndex++) {
             for (int yIndex = 0; yIndex < len; yIndex++) {
                 if (array[xIndex] < array[yIndex]) {
@@ -677,14 +648,15 @@ public class UHFRManager {
         return array;
     }
 
-    public boolean setGen2session(boolean isMulti) {
+    public boolean setGen2session(boolean OnclickIsMulti) {
         try {
             int[] val = new int[]{-1};
-            if (isMulti) {
+            if (OnclickIsMulti) {
                 val[0] = 1;
             } else {
                 val[0] = 0;
             }
+
             READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION, val);
             return er == READER_ERR.MT_OK_ERR;
         } catch (Exception var4) {
@@ -706,25 +678,4 @@ public class UHFRManager {
     public READER_ERR ReadTagLED(int ant, short timeout, short metaflag, TagLED_DATA tagled) {
         return reader.ReadTagLED(ant, timeout, metaflag, tagled);
     }
-
-    /**
-     * 开启/关闭FastTid
-     */
-    public boolean setFastTid(boolean isOpenFastTiD) {
-        if (isOpenFastTiD) {
-            Reader.CustomParam_ST cpara = reader.new CustomParam_ST();
-            cpara.ParamName = "tagcustomcmd/fastid";
-            cpara.ParamVal = new byte[1];
-            cpara.ParamVal[0] = 1;
-            READER_ERR ret = reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpara);
-            return ret == READER_ERR.MT_OK_ERR;
-        } else {
-            Reader.CustomParam_ST cpara = reader.new CustomParam_ST();
-            cpara.ParamName = "tagcustomcmd/fastid";
-            cpara.ParamVal = new byte[1];
-            READER_ERR ret = reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpara);
-            return ret == READER_ERR.MT_OK_ERR;
-        }
-    }
-
 }
