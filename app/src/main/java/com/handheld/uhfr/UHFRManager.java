@@ -47,7 +47,7 @@ public class UHFRManager {
     /**
      * 是否开启了附加数据（作用域只在于本app中，非模块），避免每次调用盘存方法都需要设置该项
      */
-    private boolean MTR_PARAM_TAG_EMBEDEDDATA = true;
+//    private boolean MTR_PARAM_TAG_EMBEDEDDATA = true;
 
     /**
      * init Uhf module
@@ -165,13 +165,13 @@ public class UHFRManager {
 
     public List<TAGINFO> tagInventoryRealTime() {
         READER_ERR er;
-        if (MTR_PARAM_TAG_EMBEDEDDATA) {
+//        if (MTR_PARAM_TAG_EMBEDEDDATA) {
             er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
             Log.d(tag, "[tagInventoryRealTime] : 0");
             if (er == READER_ERR.MT_OK_ERR) {
-                MTR_PARAM_TAG_EMBEDEDDATA = false;
+//                MTR_PARAM_TAG_EMBEDEDDATA = false;
             }
-        }
+//        }
         List<TAGINFO> list = new ArrayList<>();
         int[] tagcnt = new int[1];
         er = reader.AsyncGetTagCount(tagcnt);
@@ -200,13 +200,13 @@ public class UHFRManager {
 
     public List<TAGINFO> tagInventoryByTimer(short readtime) {
         READER_ERR er;
-        if (MTR_PARAM_TAG_EMBEDEDDATA) {
+//        if (MTR_PARAM_TAG_EMBEDEDDATA) {
             er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
             Log.d(tag, "[tagInventoryByTimer] : 0");
             if (er == READER_ERR.MT_OK_ERR) {
-                MTR_PARAM_TAG_EMBEDEDDATA = false;
+//                MTR_PARAM_TAG_EMBEDEDDATA = false;
             }
-        }
+//        }
         List<TAGINFO> list = new ArrayList<>();
 
         int[] tagcnt = new int[1];
@@ -240,7 +240,7 @@ public class UHFRManager {
             edst.bytecnt = 12;
             er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
             if (er == READER_ERR.MT_OK_ERR) {
-                MTR_PARAM_TAG_EMBEDEDDATA = true;
+//                MTR_PARAM_TAG_EMBEDEDDATA = true;
                 bank = 2;
                 startaddr = 0;
                 bytecnt = 12;
@@ -283,7 +283,7 @@ public class UHFRManager {
                 er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
                 Log.i(tag, "[tagEpcOtherInventoryByTimer] 1: ");
                 if (er == READER_ERR.MT_OK_ERR) {
-                    MTR_PARAM_TAG_EMBEDEDDATA = true;
+//                    MTR_PARAM_TAG_EMBEDEDDATA = true;
                     this.bank = bank;
                     this.startaddr = startaddr;
                     this.bytecnt = bytecnt;
@@ -300,7 +300,7 @@ public class UHFRManager {
             er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
             Log.i(tag, "[tagEpcOtherInventoryByTimer] 2: ");
             if (er == READER_ERR.MT_OK_ERR) {
-                MTR_PARAM_TAG_EMBEDEDDATA = true;
+//                MTR_PARAM_TAG_EMBEDEDDATA = true;
                 this.bank = bank;
                 this.startaddr = startaddr;
                 this.bytecnt = bytecnt;
@@ -710,7 +710,7 @@ public class UHFRManager {
     /**
      * 开启/关闭FastTid
      */
-    public boolean setFastTid(boolean isOpenFastTiD) {
+    public boolean setFastID(boolean isOpenFastTiD) {
         if (isOpenFastTiD) {
             Reader.CustomParam_ST cpara = reader.new CustomParam_ST();
             cpara.ParamName = "tagcustomcmd/fastid";

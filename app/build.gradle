@@ -8,8 +8,8 @@ android {
         applicationId "com.handheld.uhfr"
         minSdkVersion 19
         targetSdkVersion 28
-        versionCode 12
-        versionName "2.0.3"
+        versionCode 13
+        versionName "2.0.4"
 
     }
 
@@ -28,15 +28,6 @@ android {
     }
 }
 
-task class_jar(type: Jar) {
-    from "build/intermediates/javac/debug/classes/"
-    destinationDir(file('build/libs'))
-    exclude('/com/handheld/uhfr/BuildConfig.class')
-    exclude('/com/handheld/uhfrdemo')
-    archiveName 'uhfr_v1.8.jar'
-}
-
-
 task clearJar(type: Delete) {
     delete 'build/libs/smarter.jar'
     delete 'libs/smarter.jar'
@@ -45,7 +36,7 @@ task clearJar(type: Delete) {
 //打包任务
 task makeJar(type: Jar) {
     //指定生成的jar名
-    baseName 'uhfr_v1.8'
+    baseName 'uhfr_v1.9'
     //从哪里打包class文件
     from "build/intermediates/javac/debug/classes/"
     //去掉不需要打包的目录和文件
@@ -54,6 +45,7 @@ task makeJar(type: Jar) {
     exclude { it.name.startsWith('R$'); }
     destinationDir(file('build/libs'))
     exclude('/com/handheld/uhfr/BuildConfig.class')
+    exclude('/com/handheld/uhfr/UHFRManagerBank.class')
     exclude('/com/handheld/uhfrdemo')
     //此段代码将相关信息写到META-INF文件中的MANEFEST.MF文件
     manifest {
