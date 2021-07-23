@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.os.SystemClock;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.util.Log;
@@ -64,7 +65,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
     private Button btnStart;//inventory button
     private Button btnClear;// clear button
     private Button btnExport;// clear button
-        private Button btnTime;// clear button
+    private Button btnTime;// clear button
     private CheckBox checkMulti;//multi model check box
     private CheckBox checkTid;//multi model check box
     private CheckBox checkPlay;//multi model check box
@@ -162,11 +163,11 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
     public View onCreateView(LayoutInflater inflater,
                              @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         // TODO Auto-generated method stub
-        Log.e("f1", "create view");
+        Log.i("f1", "create view");
         view = inflater.inflate(R.layout.fragment_inventory, null);
         mSharedPreferences = getActivity().getSharedPreferences("UHF", Context.MODE_PRIVATE);
         timeout = mSharedPreferences.getInt("timeOut", 10000);
-        Log.e(TAG, String.valueOf(timeout));
+        Log.i(TAG, String.valueOf(timeout));
         initView();
         IntentFilter filter = new IntentFilter();
         filter.addAction("android.rfid.FUN_KEY");
@@ -257,11 +258,25 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
     public void onHiddenChanged(boolean hidden) {
         super.onHiddenChanged(hidden);
         f1hidden = hidden;
-//		Log.e("hidden", "hide"+hidden) ;
+		Log.i("hidden", "hide"+hidden);
         if (isStart) {
             isStart = false;
+            if (isMulti) {
+                Log.i(TGA, "isMulti-true");
+                MainActivity.mUhfrManager.asyncStopReading();
+            }
             handler1.removeCallbacks(runnable_MainActivity);
+            handler1.removeCallbacks(runnable_MainActivity1);
             btnStart.setText(this.getString(R.string.start_inventory_epc));
+            if (!isTid) {
+                checkMulti.setEnabled(true);
+            }
+            checkTid.setEnabled(true);
+            checkPlay.setEnabled(true);
+            btnStart.setEnabled(true);
+            btnTime.setEnabled(true);
+            btnExport.setEnabled(true);
+            btnClear.setEnabled(true);
         }
         if (MainActivity.mUhfrManager != null) MainActivity.mUhfrManager.setCancleInventoryFilter();
     }
@@ -282,12 +297,11 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             System.out.println("name=" + name);
             List<TAGINFO> list1;
             if (isMulti) {
-                Log.e(TGA, "runnable-isMulti-true");
+                Log.i(TGA, "runnable-isMulti-true");
                 list1 = MainActivity.mUhfrManager.tagInventoryRealTime();
             } else {
                 if (isTid) {
-//                    list1 = MainActivity.mUhfrManager.tagEpcTidInventoryByTimer((short) 50);
-                    list1 = MainActivity.mUhfrManager.tagEpcOtherInventoryByTimer((short) 50, 3, 0, 2, Tools.HexString2Bytes("00000000"));
+                    list1 = MainActivity.mUhfrManager.tagEpcTidInventoryByTimer((short) 50);
                 } else {
                     list1 = MainActivity.mUhfrManager.tagInventoryByTimer((short) 50);
                 }
@@ -295,13 +309,14 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             String data;
             handler1.sendEmptyMessage(1980);
             if (list1 == null) {
-                // error info, Stop Inventory
+                // error info, show user
                 handler1.sendEmptyMessage(404);
-                onClick(btnStart);
-                return;
+//                onClick(btnStart);
+//                return;
+                Log.e(TAG, "[run] error: " + UHFRManager.mErr.toString());
             }
             if (list1 != null && list1.size() > 0) {//
-                Log.e(TGA, list1.size() + "");
+                Log.i(TGA, list1.size() + "");
                 if (isPlay) {
                     Util.play(1, 0);
                 }
@@ -334,7 +349,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             System.out.println("name=" + name);
             List<TAGINFO> list1;
             if (isMulti) {
-                Log.e(TGA, "[ScheduleInventoryTask] multi read");
+                Log.i(TGA, "[ScheduleInventoryTask] multi read");
                 list1 = MainActivity.mUhfrManager.tagInventoryRealTime();
             } else {
                 if (isTid) {
@@ -346,14 +361,15 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             String data;
             handler1.sendEmptyMessage(1980);
             if (list1 == null) {
-                // error info, Stop schedule inventory
+                // error info, show user
                 handler1.sendEmptyMessage(404);
-                isRead();
-                handler1.sendEmptyMessage(1000);
-                return;
+//                isRead();
+//                handler1.sendEmptyMessage(1000);
+//                return;
+                Log.e(TAG, "[run] error: " + UHFRManager.mErr.toString());
             }
             if (list1 != null && list1.size() > 0) {
-                Log.e(TGA, list1.size() + "");
+                Log.i(TGA, list1.size() + "");
                 if (isPlay) {
                     Util.play(1, 0);
                 }
@@ -374,8 +390,8 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                     handler1.sendMessage(msg);
                 }
             }
-            long currentTimeMillis = System.currentTimeMillis();
-            if (currentTimeMillis - statenvtick < timeout) {
+            long elapsedRealtime = SystemClock.elapsedRealtime();
+            if (elapsedRealtime - statenvtick < timeout) {
                 handler1.postDelayed(runnable_MainActivity1, 0);
             } else {
                 isRead();
@@ -395,18 +411,30 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             // Clear err info
             tvErr.setText("");
             checkMulti.setEnabled(false);
+            checkTid.setEnabled(false);
+            checkPlay.setEnabled(false);
+            btnTime.setEnabled(false);
+            btnExport.setEnabled(false);
+            btnClear.setEnabled(false);
             btnStart.setText(this.getString(R.string.stop_inventory_epc));
             MainActivity.mUhfrManager.setGen2session(isMulti);
             if (isMulti) {
-                Log.e(TGA, "isMulti-true");
+                Log.i(TGA, "isMulti-true");
                 MainActivity.mUhfrManager.asyncStartReading();
             }
             handler1.postDelayed(runnable_MainActivity, 0);
             isStart = true;
         } else {
-            checkMulti.setEnabled(true);
+            if (!isTid) {
+                checkMulti.setEnabled(true);
+            }
+            checkTid.setEnabled(true);
+            checkPlay.setEnabled(true);
+            btnTime.setEnabled(true);
+            btnExport.setEnabled(true);
+            btnClear.setEnabled(true);
             if (isMulti) {
-                Log.e(TGA, "isMulti-true");
+                Log.i(TGA, "isMulti-true");
                 MainActivity.mUhfrManager.asyncStopReading();
             }
             handler1.removeCallbacks(runnable_MainActivity);
@@ -424,23 +452,35 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             // Clear err info
             tvErr.setText("");
             checkMulti.setEnabled(false);
-            btnStart.setText(this.getString(R.string.stop_inventory_epc));
+            checkTid.setEnabled(false);
+            checkPlay.setEnabled(false);
+            btnStart.setEnabled(false);
+            btnTime.setEnabled(false);
+            btnExport.setEnabled(false);
+            btnClear.setEnabled(false);
             MainActivity.mUhfrManager.setGen2session(isMulti);
             if (isMulti) {
                 MainActivity.mUhfrManager.asyncStartReading();
-                Log.e(TGA, "[scheduleRead] multi read");
+                Log.i(TGA, "[scheduleRead] multi read");
             }
             handler1.postDelayed(runnable_MainActivity1, 0);
             isStart = true;
         } else {
-            checkMulti.setEnabled(true);
+            if (!isTid) {
+                checkMulti.setEnabled(true);
+            }
+            checkTid.setEnabled(true);
+            checkPlay.setEnabled(true);
+            btnStart.setEnabled(true);
+            btnTime.setEnabled(true);
+            btnExport.setEnabled(true);
+            btnClear.setEnabled(true);
+            isStart = false;
             if (isMulti) {
-                Log.e(TGA, "isMulti-true");
+                Log.i(TGA, "isMulti-true");
                 MainActivity.mUhfrManager.asyncStopReading();
             }
             handler1.removeCallbacks(runnable_MainActivity1);
-            btnStart.setText(this.getString(R.string.start_inventory_epc));
-            isStart = false;
         }
     }
 
@@ -491,12 +531,9 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                 break;
 
             case R.id.button_time_start:
-                btnStart.setEnabled(false);
-                btnExport.setEnabled(false);
-                btnTime.setEnabled(false);
-                statenvtick = System.currentTimeMillis();
-                Log.e(TAG, "statetime:" + statenvtick);
-                Log.e(TGA, "isMulti-true");
+                statenvtick = SystemClock.elapsedRealtime();
+                Log.i(TAG, "statetime:" + statenvtick);
+                Log.i(TGA, "isMulti-true");
                 scheduleRead();
                 break;
             default:
@@ -548,20 +585,20 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
 //            Log.e("key ","keyCode = " + keyCode) ;
             boolean keyDown = intent.getBooleanExtra("keydown", false);
 //			Log.e("key ", "down = " + keyDown);
-            if (keyUpFalg && keyDown && System.currentTimeMillis() - startTime > 500) {
+            if (keyUpFalg && keyDown && SystemClock.elapsedRealtime() - startTime > 500) {
                 keyUpFalg = false;
-                startTime = System.currentTimeMillis();
+                startTime = SystemClock.elapsedRealtime();
                 if ((//keyCode == KeyEvent.KEYCODE_F1 || keyCode == KeyEvent.KEYCODE_F2
                         keyCode == KeyEvent.KEYCODE_F3 ||
 //                                 keyCode == KeyEvent.KEYCODE_F4 ||
                                 keyCode == KeyEvent.KEYCODE_F4
-                || keyCode == KeyEvent.KEYCODE_F7)) {
+                                || keyCode == KeyEvent.KEYCODE_F7)) {
 //                Log.e("key ","inventory.... " ) ;
                     onClick(btnStart);
                 }
                 return;
             } else if (keyDown) {
-                startTime = System.currentTimeMillis();
+                startTime = SystemClock.elapsedRealtime();
             } else {
                 keyUpFalg = true;
             }
@@ -639,7 +676,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
 
     public String FileName() {
         String res;
-        long time = System.currentTimeMillis();
+        long time = SystemClock.elapsedRealtime();
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Date date = new Date(time);
         res = simpleDateFormat.format(date).trim() + ".xls";

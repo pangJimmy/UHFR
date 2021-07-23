@@ -73,6 +73,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
             // For Android10.0 module
             instance = ScanUtil.getInstance(this);
             instance.disableScanKey("134");
+            instance.disableScanKey("137");
         }
 
         mUhfrManager = UHFRManager.getInstance();// Init Uhf module
@@ -110,6 +111,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         if (currentApiVersion > Build.VERSION_CODES.N) {
             // For Android10.0 module
             instance.enableScanKey("134");
+            instance.enableScanKey("137");
         }
         try {
             Thread.sleep(500);
@@ -182,7 +184,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
                 packInfo = packageManager.getPackageInfo(getPackageName(), 0);
                 String version = packInfo.versionName;//get this version
                 showToast("Version:" + version
-                    +"\nDate:"+"2017-05-20" +"\nType:"+mUhfrManager.getHardware());
+                    +"\nDate:"+"2021-07-23" +"\nType:"+mUhfrManager.getHardware());
             } catch (PackageManager.NameNotFoundException e) {
                 e.printStackTrace();
             }

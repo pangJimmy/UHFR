@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import cn.pda.serialport.SerialPort;
-import cn.pda.serialport.Tools;
 
 /**
  * @author LeiHuang
@@ -39,10 +38,6 @@ public class UHFRManager {
     private final int ant = 1;
     public deviceVersion dv;
     public static READER_ERR mErr;
-    private int bank = 2;
-    private int startaddr = 0;
-    private int bytecnt = 12;
-    private byte[] accesspwd = null;
 
     /**
      * 是否开启了附加数据（作用域只在于本app中，非模块），避免每次调用盘存方法都需要设置该项
@@ -166,11 +161,11 @@ public class UHFRManager {
     public List<TAGINFO> tagInventoryRealTime() {
         READER_ERR er;
 //        if (MTR_PARAM_TAG_EMBEDEDDATA) {
-            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
-            Log.d(tag, "[tagInventoryRealTime] : 0");
-            if (er == READER_ERR.MT_OK_ERR) {
+        er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
+        Log.d(tag, "[tagInventoryRealTime] : 0");
+        if (er == READER_ERR.MT_OK_ERR) {
 //                MTR_PARAM_TAG_EMBEDEDDATA = false;
-            }
+        }
 //        }
         List<TAGINFO> list = new ArrayList<>();
         int[] tagcnt = new int[1];
@@ -201,11 +196,11 @@ public class UHFRManager {
     public List<TAGINFO> tagInventoryByTimer(short readtime) {
         READER_ERR er;
 //        if (MTR_PARAM_TAG_EMBEDEDDATA) {
-            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
-            Log.d(tag, "[tagInventoryByTimer] : 0");
-            if (er == READER_ERR.MT_OK_ERR) {
+        er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
+        Log.d(tag, "[tagInventoryByTimer] : 0");
+        if (er == READER_ERR.MT_OK_ERR) {
 //                MTR_PARAM_TAG_EMBEDEDDATA = false;
-            }
+        }
 //        }
         List<TAGINFO> list = new ArrayList<>();
 
@@ -232,21 +227,12 @@ public class UHFRManager {
         List<TAGINFO> list = new ArrayList<>();
         READER_ERR er;
 
-        if (bank != 2 || startaddr != 0 || bytecnt != 12 || accesspwd != null) {
-            Reader.EmbededData_ST edst = reader.new EmbededData_ST();
-            edst.accesspwd = null;
-            edst.bank = 2;
-            edst.startaddr = 0;
-            edst.bytecnt = 12;
-            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
-            if (er == READER_ERR.MT_OK_ERR) {
-//                MTR_PARAM_TAG_EMBEDEDDATA = true;
-                bank = 2;
-                startaddr = 0;
-                bytecnt = 12;
-                accesspwd = null;
-            }
-        }
+        Reader.EmbededData_ST edst = reader.new EmbededData_ST();
+        edst.accesspwd = null;
+        edst.bank = 2;
+        edst.startaddr = 0;
+        edst.bytecnt = 12;
+        reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
 
         int[] tagcnt = new int[1];
         er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
@@ -269,45 +255,13 @@ public class UHFRManager {
         List<TAGINFO> list = new ArrayList<>();
         READER_ERR er;
 
-        Log.i(tag, "[tagEpcOtherInventoryByTimer] 0: ");
-        if (this.bank == bank && this.startaddr == startaddr && this.bytecnt == bytecnt && this.accesspwd != null) {
-            String newAccesspwd = Tools.Bytes2HexString(accesspwd, accesspwd.length);
-            String oldAccesspwd = Tools.Bytes2HexString(this.accesspwd, this.accesspwd.length);
-            if (!newAccesspwd.equals(oldAccesspwd)) {
-                //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
-                Reader.EmbededData_ST edst = reader.new EmbededData_ST();
-                edst.bank = bank;
-                edst.startaddr = startaddr;
-                edst.bytecnt = bytecnt;
-                edst.accesspwd = accesspwd;
-                er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
-                Log.i(tag, "[tagEpcOtherInventoryByTimer] 1: ");
-                if (er == READER_ERR.MT_OK_ERR) {
-//                    MTR_PARAM_TAG_EMBEDEDDATA = true;
-                    this.bank = bank;
-                    this.startaddr = startaddr;
-                    this.bytecnt = bytecnt;
-                    this.accesspwd = accesspwd;
-                }
-            }
-        } else {
-            //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
-            Reader.EmbededData_ST edst = reader.new EmbededData_ST();
-            edst.bank = bank;
-            edst.startaddr = startaddr;
-            edst.bytecnt = bytecnt;
-            edst.accesspwd = accesspwd;
-            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
-            Log.i(tag, "[tagEpcOtherInventoryByTimer] 2: ");
-            if (er == READER_ERR.MT_OK_ERR) {
-//                MTR_PARAM_TAG_EMBEDEDDATA = true;
-                this.bank = bank;
-                this.startaddr = startaddr;
-                this.bytecnt = bytecnt;
-                this.accesspwd = accesspwd;
-            }
-        }
-        Log.i(tag, "[tagEpcOtherInventoryByTimer] 3: ");
+        //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
+        Reader.EmbededData_ST edst = reader.new EmbededData_ST();
+        edst.bank = bank;
+        edst.startaddr = startaddr;
+        edst.bytecnt = bytecnt;
+        edst.accesspwd = accesspwd;
+        reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
 
         int[] tagcnt = new int[1];
         er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
