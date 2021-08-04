@@ -8,8 +8,8 @@ android {
         applicationId "com.handheld.uhfr"
         minSdkVersion 19
         targetSdkVersion 28
-        versionCode 13
-        versionName "2.0.4"
+        versionCode 14
+        versionName "2.0.5"
 
     }
 

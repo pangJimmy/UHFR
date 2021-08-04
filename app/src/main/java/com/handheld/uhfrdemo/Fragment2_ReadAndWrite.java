@@ -20,6 +20,7 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import cn.pda.serialport.Tools;
 
@@ -43,6 +44,9 @@ public class Fragment2_ReadAndWrite extends Fragment implements View.OnClickList
 	private String[] membankArr = new String[]{"RESERVED", "EPC" , "TID", "USER"} ;//read or write memory bank
 	private String selectEpc = "";//select epc
 	private int membank ;//read or write memory bank
+
+	Pattern pattern = Pattern.compile("[0-9A-Fa-f]*");
+
 	@Override
 	public View onCreateView(LayoutInflater inflater,
 			@Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -202,6 +206,10 @@ public class Fragment2_ReadAndWrite extends Fragment implements View.OnClickList
 			showToast(getResources().getString(R.string.please_write_data));
 			return ;
 		}
+		if (writeStr.length() % 4 != 0) {
+			showToast(getResources().getString(R.string.please_write_data_type_error));
+			return;
+		}
 		byte[] writeDataBytes = null ;
 		try {
 			writeDataBytes = Tools.HexString2Bytes(writeStr) ;
@@ -248,6 +256,10 @@ public class Fragment2_ReadAndWrite extends Fragment implements View.OnClickList
 		if(writeStr == null || writeStr.length() == 0 ){
 			showToast(getResources().getString(R.string.please_write_data));
 			return ;
+		}
+		if (writeStr.length() % 4 != 0) {
+			showToast(getResources().getString(R.string.please_write_data_type_error));
+			return;
 		}
 		byte[] newEPCByte = Tools.HexString2Bytes(editWriteData.getText().toString().trim());
 		byte[] pcByte = new byte[] { 0x00, 0x00 };
@@ -303,5 +315,9 @@ public class Fragment2_ReadAndWrite extends Fragment implements View.OnClickList
 		else
 			mToast.setText(info);
 		mToast.show();
+	}
+
+	public boolean isNumeric(String str){
+		return pattern.matcher(str).matches();
 	}
 }

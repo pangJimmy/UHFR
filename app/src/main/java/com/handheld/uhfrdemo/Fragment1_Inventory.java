@@ -239,8 +239,22 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
 //		Log.e("f1","pause");
         if (isStart) {
             isStart = false;
+            if (isMulti) {
+                Log.i(TGA, "isMulti-true");
+                MainActivity.mUhfrManager.asyncStopReading();
+            }
             handler1.removeCallbacks(runnable_MainActivity);
+            handler1.removeCallbacks(runnable_MainActivity1);
             btnStart.setText(this.getString(R.string.start_inventory_epc));
+            if (!isTid) {
+                checkMulti.setEnabled(true);
+            }
+            checkTid.setEnabled(true);
+            checkPlay.setEnabled(true);
+            btnStart.setEnabled(true);
+            btnTime.setEnabled(true);
+            btnExport.setEnabled(true);
+            btnClear.setEnabled(true);
         }
         MainActivity activity = (MainActivity) getActivity();
         if (activity != null) {
