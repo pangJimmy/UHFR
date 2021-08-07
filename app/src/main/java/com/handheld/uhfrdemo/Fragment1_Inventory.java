@@ -152,7 +152,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                     showToast("Schedule inventory finished!");
                     break;
                 case 404:// error info
-                    tvErr.setText(UHFRManager.mErr.name());
+                    tvErr.setText(UHFRManager.mErr.ordinal());
                 default:
                     break;
             }
@@ -327,7 +327,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                 handler1.sendEmptyMessage(404);
 //                onClick(btnStart);
 //                return;
-                Log.e(TAG, "[run] error: " + UHFRManager.mErr.toString());
+                Log.e(TAG, "[run] error: " + UHFRManager.mErr.ordinal());
             }
             if (list1 != null && list1.size() > 0) {//
                 Log.i(TGA, list1.size() + "");
@@ -380,7 +380,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
 //                isRead();
 //                handler1.sendEmptyMessage(1000);
 //                return;
-                Log.e(TAG, "[run] error: " + UHFRManager.mErr.toString());
+                Log.e(TAG, "[run] error: " + UHFRManager.mErr.ordinal());
             }
             if (list1 != null && list1.size() > 0) {
                 Log.i(TGA, list1.size() + "");
