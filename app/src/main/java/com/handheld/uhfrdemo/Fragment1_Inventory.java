@@ -152,7 +152,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                     showToast("Schedule inventory finished!");
                     break;
                 case 404:// error info
-                    tvErr.setText(UHFRManager.mErr.ordinal());
+                    tvErr.setText(String.valueOf(UHFRManager.mErr.ordinal()));
                 default:
                     break;
             }
@@ -325,9 +325,14 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             if (list1 == null) {
                 // error info, show user
                 handler1.sendEmptyMessage(404);
+                // reset state
+                if (isMulti) {
+                    MainActivity.mUhfrManager.asyncStopReading();
+                    MainActivity.mUhfrManager.asyncStartReading();
+                }
 //                onClick(btnStart);
 //                return;
-                Log.e(TAG, "[run] error: " + UHFRManager.mErr.ordinal());
+                Log.e(TAG, "[run] error: " + String.valueOf(UHFRManager.mErr.ordinal()));
             }
             if (list1 != null && list1.size() > 0) {//
                 Log.i(TGA, list1.size() + "");
@@ -377,10 +382,15 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             if (list1 == null) {
                 // error info, show user
                 handler1.sendEmptyMessage(404);
+                // reset state
+                if (isMulti) {
+                    MainActivity.mUhfrManager.asyncStopReading();
+                    MainActivity.mUhfrManager.asyncStartReading();
+                }
 //                isRead();
 //                handler1.sendEmptyMessage(1000);
 //                return;
-                Log.e(TAG, "[run] error: " + UHFRManager.mErr.ordinal());
+                Log.e(TAG, "[run] error: " + String.valueOf(UHFRManager.mErr.ordinal()));
             }
             if (list1 != null && list1.size() > 0) {
                 Log.i(TGA, list1.size() + "");

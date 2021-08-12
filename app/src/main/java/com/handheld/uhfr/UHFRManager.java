@@ -44,6 +44,18 @@ public class UHFRManager {
      */
 //    private boolean MTR_PARAM_TAG_EMBEDEDDATA = true;
 
+    private static boolean DEBUG = false;
+
+    public static void setDebuggable(boolean debuggable) {
+        DEBUG = debuggable;
+    }
+
+    private void logPrint(String content) {
+        if (DEBUG) {
+            Log.e("huang,UHFRManager", content);
+        }
+    }
+
     /**
      * init Uhf module
      *
@@ -117,10 +129,14 @@ public class UHFRManager {
     }
 
     public READER_ERR asyncStartReading() {
+        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
+        logPrint("asyncStartReading, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
         return reader.AsyncStartReading(ants, 1, 16);
     }
 
     public READER_ERR asyncStartReading(int option) {
+        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
+        logPrint("asyncStartReading, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
         return reader.AsyncStartReading(ants, 1, option);
     }
 
@@ -143,7 +159,7 @@ public class UHFRManager {
         g2tf.startaddr = fstartaddr * 16;
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
         if (er != READER_ERR.MT_OK_ERR) {
-            Log.e(tag, er.toString());
+            logPrint("setInventoryFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             return false;
         }
         return true;
@@ -152,7 +168,7 @@ public class UHFRManager {
     public boolean setCancleInventoryFilter() {
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
         if (er != READER_ERR.MT_OK_ERR) {
-            Log.e(tag, er.toString());
+            logPrint("setCancleInventoryFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             return false;
         }
         return true;
@@ -161,11 +177,11 @@ public class UHFRManager {
     public List<TAGINFO> tagInventoryRealTime() {
         READER_ERR er;
 //        if (MTR_PARAM_TAG_EMBEDEDDATA) {
-        er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
-        Log.d(tag, "[tagInventoryRealTime] : 0");
-        if (er == READER_ERR.MT_OK_ERR) {
+//        er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
+//        Log.d(tag, "[tagInventoryRealTime] : 0");
+//        if (er == READER_ERR.MT_OK_ERR) {
 //                MTR_PARAM_TAG_EMBEDEDDATA = false;
-        }
+//        }
 //        }
         List<TAGINFO> list = new ArrayList<>();
         int[] tagcnt = new int[1];
@@ -187,7 +203,7 @@ public class UHFRManager {
     public boolean stopTagInventory() {
         READER_ERR er = reader.AsyncStopReading();
         if (er != READER_ERR.MT_OK_ERR) {
-            Log.e(tag, er.toString());
+            logPrint("stopTagInventory, AsyncStopReading result: " + er.toString());
             return false;
         }
         return true;
@@ -197,10 +213,10 @@ public class UHFRManager {
         READER_ERR er;
 //        if (MTR_PARAM_TAG_EMBEDEDDATA) {
         er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
-        Log.d(tag, "[tagInventoryByTimer] : 0");
-        if (er == READER_ERR.MT_OK_ERR) {
+        logPrint("tagInventoryByTimer, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
+//        if (er == READER_ERR.MT_OK_ERR) {
 //                MTR_PARAM_TAG_EMBEDEDDATA = false;
-        }
+//        }
 //        }
         List<TAGINFO> list = new ArrayList<>();
 
@@ -297,10 +313,10 @@ public class UHFRManager {
             } while (er != READER_ERR.MT_OK_ERR);
 
             if (er != READER_ERR.MT_OK_ERR) {
-                Log.e(tag, er.toString());
+                logPrint("getTagData, GetTagData result: " + er.toString());
             }
         } else {
-            Log.e(tag, er.toString());
+            logPrint("getTagData, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
         }
         return er;
     }
@@ -328,11 +344,11 @@ public class UHFRManager {
             if (er == READER_ERR.MT_OK_ERR) {
                 return rdata;
             } else {
-                Log.e("read by filter read", er.toString());
+                logPrint("getTagDataByFilter, GetTagData result: " + er.toString());
                 return null;
             }
         } else {
-            Log.e("read by filter set", er.toString());
+            logPrint("getTagDataByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             return null;
         }
     }
@@ -352,10 +368,10 @@ public class UHFRManager {
             } while (er != READER_ERR.MT_OK_ERR);
 
             if (er != READER_ERR.MT_OK_ERR) {
-                Log.e(tag, er.toString());
+                logPrint("writeTagData, WriteTagData result: " + er.toString());
             }
         } else {
-            Log.e(tag, er.toString());
+            logPrint("writeTagData, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
         }
         return er;
     }
@@ -388,10 +404,10 @@ public class UHFRManager {
             } while (er != READER_ERR.MT_OK_ERR);
 
             if (er != READER_ERR.MT_OK_ERR) {
-                Log.e(tag, er.toString());
+                logPrint("writeTagDataByFilter, WriteTagData result: " + er.toString());
             }
         } else {
-            Log.e(tag, er.toString());
+            logPrint("writeTagDataByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
         }
         return er;
     }
@@ -409,7 +425,7 @@ public class UHFRManager {
         } while (er != READER_ERR.MT_OK_ERR);
 
         if (er != READER_ERR.MT_OK_ERR) {
-            Log.e(tag, er.toString());
+            logPrint("writeTagEPC, WriteTagEpcEx result: " + er.toString());
         }
         return er;
     }
@@ -442,10 +458,10 @@ public class UHFRManager {
                 trycount = trycount - 1;
             } while (er != READER_ERR.MT_OK_ERR);
             if (er != READER_ERR.MT_OK_ERR) {
-                Log.e(tag, er.toString());
+                logPrint("writeTagEPCByFilter, WriteTagEpcEx result: " + er.toString());
             }
         } else {
-            Log.e(tag, er.toString());
+            logPrint("writeTagEPCByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
         }
         return er;
 
@@ -459,7 +475,7 @@ public class UHFRManager {
                     (short) locktype.value(), accesspasswd, timeout);
         }
         if (er != READER_ERR.MT_OK_ERR) {
-            Log.e(tag, er.toString());
+            logPrint("lockTag, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
         }
         return er;
     }
@@ -485,7 +501,7 @@ public class UHFRManager {
                     (short) locktype.value(), accesspasswd, timeout);
         }
         if (er != READER_ERR.MT_OK_ERR) {
-            Log.e(tag, er.toString());
+            logPrint("lockTagByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
         }
         return er;
     }
@@ -496,7 +512,7 @@ public class UHFRManager {
             er = reader.KillTag(ant, killpasswd, timeout);
         }
         if (er != READER_ERR.MT_OK_ERR) {
-            Log.e(tag, er.toString());
+            logPrint("killTag, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
         }
         return er;
     }
@@ -520,7 +536,7 @@ public class UHFRManager {
             er = reader.KillTag(ant, killpasswd, timeout);
         }
         if (er != READER_ERR.MT_OK_ERR) {
-            Log.e(tag, er.toString());
+            logPrint("killTagByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
         }
         return er;
     }
@@ -536,7 +552,7 @@ public class UHFRManager {
         if (er == READER_ERR.MT_OK_ERR) {
             return rcf2[0];
         }
-        Log.e(tag, er.toString());
+        logPrint("getRegion, ParamGet MTR_PARAM_FREQUENCY_REGION result: " + er.toString());
         return null;
 
     }
@@ -550,7 +566,7 @@ public class UHFRManager {
             tablefre = sort(hdst2.htb, hdst2.lenhtb);
             return tablefre;
         }
-        Log.e(tag, er.toString());
+        logPrint("getFrequencyPoints, ParamGet MTR_PARAM_FREQUENCY_HOPTABLE result: " + er.toString());
         return null;
     }
 
@@ -582,7 +598,7 @@ public class UHFRManager {
             powers[1] = apcf2.Powers[0].writePower / 100;
             return powers;
         } else {
-            Log.e(tag, er.toString());
+            logPrint("getPower, ParamGet MTR_PARAM_RF_ANTPOWER result: " + er.toString());
             return null;
         }
     }
@@ -596,7 +612,7 @@ public class UHFRManager {
         if (er == READER_ERR.MT_OK_ERR) {
             return val[0];
         } else {
-            Log.e(tag, er.toString());
+            logPrint("getTemperature, ParamGet MTR_PARAM_RF_TEMPERATURE result: " + er.toString());
             return -1;
         }
     }
