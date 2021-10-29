@@ -131,12 +131,23 @@ public class UHFRManager {
     public READER_ERR asyncStartReading() {
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
         logPrint("asyncStartReading, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
-        return reader.AsyncStartReading(ants, 1, 16);
+        // 设置gen2 tag编码(PROF)
+//        int[] val = new int[] {19};//profile3，默认M4
+//        er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_TAGENCODING, val);
+//        logPrint("asyncStartReading, ParamSet MTR_PARAM_POTL_GEN2_TAGENCODING result: " + er.toString());
+        // option = 0, 多标签快速模式(不含附加数据)
+        return reader.AsyncStartReading(ants, 1, 0);
+        // option = 16, 多标签手持机模式(不含附加数据)
+//        return reader.AsyncStartReading(ants, 1, 16);
     }
 
     public READER_ERR asyncStartReading(int option) {
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
         logPrint("asyncStartReading, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
+        // 设置gen2 tag编码(PROF)
+//        int[] val = new int[] {19};//profile3，默认M4
+//        er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_TAGENCODING, val);
+//        logPrint("asyncStartReading, ParamSet MTR_PARAM_POTL_GEN2_TAGENCODING result: " + er.toString());
         return reader.AsyncStartReading(ants, 1, option);
     }
 
@@ -651,8 +662,12 @@ public class UHFRManager {
         try {
             int[] val = new int[]{-1};
             if (isMulti) {
-                val[0] = 1;
+                // session 2
+                val[0] = 2;
+                // session 1
+//                val[0] = 1;
             } else {
+                // session0
                 val[0] = 0;
             }
             READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION, val);

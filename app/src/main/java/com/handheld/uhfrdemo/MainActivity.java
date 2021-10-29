@@ -184,7 +184,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
                 packInfo = packageManager.getPackageInfo(getPackageName(), 0);
                 String version = packInfo.versionName;//get this version
                 showToast("Version:" + version
-                    +"\nDate:"+"2021-07-23" +"\nType:"+mUhfrManager.getHardware());
+                    +"\nDate:"+"2021-10-29" +"\nType:"+mUhfrManager.getHardware());
             } catch (PackageManager.NameNotFoundException e) {
                 e.printStackTrace();
             }

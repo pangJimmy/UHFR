@@ -130,5 +130,7 @@
     <string name="inituhffail">Init uhf fail！</string>
     <string name="exiting">Exiting...</string>
     <string name="connection_failed">Module connection failed, please exit the application and re-enter.</string>
+    <string name="timeout">StopTime(ms): </string>
+    <string name="def_timeout">10000</string>
 
 </resources>

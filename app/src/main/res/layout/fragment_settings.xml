@@ -12,7 +12,6 @@
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
         android:padding="5dp">
 
         <TextView
@@ -53,7 +52,6 @@
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
         android:padding="5dp"
         android:gravity="right">
         <Button
@@ -101,11 +99,15 @@
 -->
     </LinearLayout>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@android:color/darker_gray"/>
+
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
         android:padding="5dp">
 
         <TextView
@@ -137,6 +139,40 @@
             android:text="@string/set"
             android:minWidth="120dp"
             android:id="@+id/button_set_freq" />
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@android:color/darker_gray"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal" >
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/timeout"/>
+
+        <EditText
+            android:id="@+id/edit_timeout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:inputType="number"
+            android:imeOptions="actionDone"
+            android:maxLength="8"
+            android:text="@string/def_timeout"/>
+
+        <Button
+            android:id="@+id/btn_set_timeout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/set" />
 
     </LinearLayout>
 <!--    <LinearLayout-->

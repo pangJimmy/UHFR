@@ -28,9 +28,11 @@ public class Fragment5_Settings extends Fragment implements OnClickListener{
 	private Spinner spinnerReadPower ;//read power select spinner
 	private Spinner spinnerWritePower ;//write power select spinner
 	private Spinner spinnerFreq ;//frequent
+	private EditText edtTimeout;
 	private Button btnGetPower ;
 	private Button btnSetPower ;
 	private Button btnGetFreq ;
+	private Button btnSetTimeout;
 //	private Button btnGetTime ;
 //	private Button btnSetTime ;
 //	private EditText editTextTime;
@@ -64,6 +66,8 @@ public class Fragment5_Settings extends Fragment implements OnClickListener{
 		spinnerReadPower = (Spinner) view.findViewById(R.id.spinner_read_power) ;
 		spinnerWritePower = (Spinner) view.findViewById(R.id.spinner_write_power) ;
 		spinnerFreq = (Spinner) view.findViewById(R.id.spinner_freq) ;
+		edtTimeout = view.findViewById(R.id.edit_timeout);
+		edtTimeout.setText(String.valueOf(timeout));
 		spinnerReadPower.setAdapter(new ArrayAdapter<String>(getActivity(), android.R.layout.simple_list_item_1, powers));
 		spinnerWritePower.setAdapter(new ArrayAdapter<String>(getActivity(), android.R.layout.simple_list_item_1, powers));
 		spinnerFreq.setAdapter(new ArrayAdapter<String>(getActivity(), android.R.layout.simple_list_item_1, freqs));
@@ -83,6 +87,7 @@ public class Fragment5_Settings extends Fragment implements OnClickListener{
 		btnSetPower = (Button) view.findViewById(R.id.button_set_power) ;
 		btnGetFreq = (Button) view.findViewById(R.id.button_get_freq) ;
 		btnSetFreq = (Button) view.findViewById(R.id.button_set_freq) ;
+		btnSetTimeout = view.findViewById(R.id.btn_set_timeout);
 		spinnerReadPower.setSelection(mPowers[0]);
 		spinnerWritePower.setSelection(mPowers[1]);
 		listenSpinner() ;
@@ -90,6 +95,7 @@ public class Fragment5_Settings extends Fragment implements OnClickListener{
 		btnSetPower.setOnClickListener(this);
 		btnGetFreq.setOnClickListener(this);
 		btnSetFreq.setOnClickListener(this);
+		btnSetTimeout.setOnClickListener(this);
 	}
 	private void listenSpinner() {
 		spinnerReadPower.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -214,6 +220,12 @@ public class Fragment5_Settings extends Fragment implements OnClickListener{
 //			case R.id.button_get_time:
 //				editTextTime.setText(String.valueOf(timeout));
 //				break;
+			case R.id.btn_set_timeout:
+				int timeout = Integer.parseInt(edtTimeout.getText().toString().trim());
+				mEditor.putInt("timeOut", timeout).apply();
+				break;
+			default:
+				break;
 		}
 	}
 	private Toast mToast;

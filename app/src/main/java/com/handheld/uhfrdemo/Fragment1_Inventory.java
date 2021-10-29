@@ -468,6 +468,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
     }
 
     public void scheduleRead() {
+        timeout = mSharedPreferences.getInt("timeOut", 10000);
         if (MainActivity.mUhfrManager == null) {
             showToast(getActivity().getString(R.string.connection_failed));
             return;
