@@ -87,6 +87,7 @@
     <string name="multi_mode">多标签模式</string>
     <string name="is_tid">TID</string>
     <string name="is_play">声音</string>
+    <string name="is_session1">Session1</string>
     <string name="single_mode">单标签模式</string>
     <string name="more_operation">更多操作</string>
     <string name="inventory_epc">盘存EPC</string>

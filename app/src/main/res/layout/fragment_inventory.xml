@@ -123,12 +123,21 @@
             android:layout_height="wrap_content"
             android:checked="false"
             android:text="@string/is_tid" />
+
         <CheckBox
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/is_play"
             android:checked="true"
             android:id="@+id/checkBox_sound" />
+
+        <CheckBox
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/is_session1"
+            android:checked="false"
+            android:enabled="false"
+            android:id="@+id/checkBox_session1" />
 
     </LinearLayout>
 

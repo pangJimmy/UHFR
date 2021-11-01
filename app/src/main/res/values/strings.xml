@@ -86,6 +86,7 @@
     <string name="multi_mode">Multi mode</string>
     <string name="is_tid">TID</string>
     <string name="is_play">isPlay</string>
+    <string name="is_session1">Session1</string>
    	<string name="single_mode">Single mode</string>
     <string name="more_operation">More operation</string>
     <string name="inventory_epc">Inventory EPC</string>

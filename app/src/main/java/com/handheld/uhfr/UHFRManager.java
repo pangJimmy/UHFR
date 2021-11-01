@@ -677,6 +677,17 @@ public class UHFRManager {
         }
     }
 
+    public boolean setGen2session(int session) {
+        try {
+            int[] val = new int[]{-1};
+            val[0] = session;
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION, val);
+            return er == READER_ERR.MT_OK_ERR;
+        } catch (Exception var4) {
+            return false;
+        }
+    }
+
     public String getInfo() {
         HardwareDetails val = reader.new HardwareDetails();
         dv = new deviceVersion();

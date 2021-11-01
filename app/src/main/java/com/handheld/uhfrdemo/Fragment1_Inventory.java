@@ -67,6 +67,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
     private Button btnExport;// clear button
     private Button btnTime;// clear button
     private CheckBox checkMulti;//multi model check box
+    private CheckBox checkSession1;//multi model check box
     private CheckBox checkTid;//multi model check box
     private CheckBox checkPlay;//multi model check box
 
@@ -75,6 +76,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
     private Map<String, Integer> mapEpc = null; //store EPC position
     private EPCadapter adapter;//epc list adapter
 
+    private boolean isSession1 = false;
     private boolean isMulti = false;// multi mode flag
     private boolean isPlay = true;// multi mode flag
     private boolean isTid = false;// multi mode flag
@@ -187,9 +189,11 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
         tvTitle = (TextView) view.findViewById(R.id.tv_title);
         tvErr = (TextView) view.findViewById(R.id.textView_err);
         checkMulti = (CheckBox) view.findViewById(R.id.checkBox_multi);
+        checkSession1 = (CheckBox) view.findViewById(R.id.checkBox_session1);
         checkTid = (CheckBox) view.findViewById(R.id.checkBox_tid);
         checkPlay = (CheckBox) view.findViewById(R.id.checkBox_sound);
         checkMulti.setOnCheckedChangeListener(this);
+        checkSession1.setOnCheckedChangeListener(this);
         checkTid.setOnCheckedChangeListener(this);
         checkPlay.setOnCheckedChangeListener(this);
         btnClear = (Button) view.findViewById(R.id.button_clear_epc);
@@ -248,6 +252,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             btnStart.setText(this.getString(R.string.start_inventory_epc));
             if (!isTid) {
                 checkMulti.setEnabled(true);
+                checkSession1.setEnabled(true);
             }
             checkTid.setEnabled(true);
             checkPlay.setEnabled(true);
@@ -284,6 +289,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             btnStart.setText(this.getString(R.string.start_inventory_epc));
             if (!isTid) {
                 checkMulti.setEnabled(true);
+                checkSession1.setEnabled(true);
             }
             checkTid.setEnabled(true);
             checkPlay.setEnabled(true);
@@ -435,14 +441,21 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             // Clear err info
             tvErr.setText("");
             checkMulti.setEnabled(false);
+            checkSession1.setEnabled(false);
             checkTid.setEnabled(false);
             checkPlay.setEnabled(false);
             btnTime.setEnabled(false);
             btnExport.setEnabled(false);
             btnClear.setEnabled(false);
             btnStart.setText(this.getString(R.string.stop_inventory_epc));
-            MainActivity.mUhfrManager.setGen2session(isMulti);
-            if (isMulti) {
+            if (isSession1) {
+                MainActivity.mUhfrManager.setGen2session(1);
+            } else {
+                MainActivity.mUhfrManager.setGen2session(isMulti);
+            }
+            if (isSession1) {
+                MainActivity.mUhfrManager.asyncStartReading(16);
+            }else if (isMulti) {
                 Log.i(TGA, "isMulti-true");
                 MainActivity.mUhfrManager.asyncStartReading();
             }
@@ -451,6 +464,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
         } else {
             if (!isTid) {
                 checkMulti.setEnabled(true);
+                checkSession1.setEnabled(true);
             }
             checkTid.setEnabled(true);
             checkPlay.setEnabled(true);
@@ -477,22 +491,30 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             // Clear err info
             tvErr.setText("");
             checkMulti.setEnabled(false);
+            checkSession1.setEnabled(false);
             checkTid.setEnabled(false);
             checkPlay.setEnabled(false);
             btnStart.setEnabled(false);
             btnTime.setEnabled(false);
             btnExport.setEnabled(false);
             btnClear.setEnabled(false);
-            MainActivity.mUhfrManager.setGen2session(isMulti);
-            if (isMulti) {
+            if (isSession1) {
+                MainActivity.mUhfrManager.setGen2session(1);
+            } else {
+                MainActivity.mUhfrManager.setGen2session(isMulti);
+            }
+            if (isSession1) {
+                MainActivity.mUhfrManager.asyncStartReading(16);
+            }else if (isMulti) {
+                Log.i(TGA, "isMulti-true");
                 MainActivity.mUhfrManager.asyncStartReading();
-                Log.i(TGA, "[scheduleRead] multi read");
             }
             handler1.postDelayed(runnable_MainActivity1, 0);
             isStart = true;
         } else {
             if (!isTid) {
                 checkMulti.setEnabled(true);
+                checkSession1.setEnabled(true);
             }
             checkTid.setEnabled(true);
             checkPlay.setEnabled(true);
@@ -514,6 +536,12 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
         switch (buttonView.getId()) {
             case R.id.checkBox_multi:
                 isMulti = isChecked;
+                if (isChecked) {
+                    checkSession1.setEnabled(true);
+                } else {
+                    checkSession1.setChecked(false);
+                    checkSession1.setEnabled(false);
+                }
                 break;
             case R.id.checkBox_sound:
                 isPlay = isChecked;
@@ -523,13 +551,20 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                     isTid = true;
                     tvTitle.setText("TID");
                     isMulti = false;
+                    isSession1 = false;
                     checkMulti.setChecked(false);
+                    checkSession1.setChecked(false);
                     checkMulti.setEnabled(false);
+                    checkSession1.setEnabled(false);
                 } else {
                     isTid = false;
                     tvTitle.setText("EPC");
                     checkMulti.setEnabled(true);
+                    checkSession1.setEnabled(true);
                 }
+                break;
+            case R.id.checkBox_session1:
+                isSession1 = isChecked;
                 break;
             default:
                 break;
