@@ -36,7 +36,7 @@ task clearJar(type: Delete) {
 //打包任务
 task makeJar(type: Jar) {
     //指定生成的jar名
-    baseName 'uhfr_v1.9.2'
+    baseName 'uhfr_v1.9.3'
     //从哪里打包class文件
     from "build/intermediates/javac/debug/classes/"
     //去掉不需要打包的目录和文件
