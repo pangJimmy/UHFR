@@ -125,13 +125,15 @@ public class Fragment3_Lock extends Fragment implements View.OnClickListener{
 						lock_obj = Reader.Lock_Obj.LOCK_OBJECT_KILL_PASSWORD;
 						break;
 					case 2:
-						lock_obj = Reader.Lock_Obj.LOCK_OBJECT_BANK2;//epc
+						lock_obj = Reader.Lock_Obj.LOCK_OBJECT_BANK1;//epc
 						break;
 					case 3:
-						lock_obj = Reader.Lock_Obj.LOCK_OBJECT_BANK1;
+						lock_obj = Reader.Lock_Obj.LOCK_OBJECT_BANK2;
 						break;
 					case 4:
 						lock_obj = Reader.Lock_Obj.LOCK_OBJECT_BANK3;
+						break;
+					default:
 						break;
 				}
 			}
