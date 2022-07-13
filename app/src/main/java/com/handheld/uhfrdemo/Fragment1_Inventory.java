@@ -12,6 +12,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
+import android.support.annotation.RequiresPermission;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -27,8 +28,10 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.gg.reader.api.protocol.gx.LogBase6bInfo;
 import com.handheld.uhfr.R;
 import com.handheld.uhfr.UHFRManager;
+import com.uhf.api.cls.Reader;
 import com.uhf.api.cls.Reader.TAGINFO;
 
 import java.io.File;
@@ -50,7 +53,6 @@ import jxl.write.WritableWorkbook;
 import jxl.write.WriteException;
 
 import static com.handheld.uhfrdemo.Util.context;
-
 
 public class Fragment1_Inventory extends Fragment implements OnCheckedChangeListener, OnClickListener {
     final String TAG = "Fragment1";
@@ -321,7 +323,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                 list1 = MainActivity.mUhfrManager.tagInventoryRealTime();
             } else {
                 if (isTid) {
-                    list1 = MainActivity.mUhfrManager.tagEpcTidInventoryByTimer((short) 50);
+                    list1 = MainActivity.mUhfrManager.tagEpcOtherInventoryByTimer((short) 50,3,0,2,Tools.HexString2Bytes("00000000"));
                 } else {
                     list1 = MainActivity.mUhfrManager.tagInventoryByTimer((short) 50);
                 }
@@ -333,12 +335,12 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                 handler1.sendEmptyMessage(404);
                 // reset state
                 if (isMulti) {
-                    MainActivity.mUhfrManager.asyncStopReading();
-                    MainActivity.mUhfrManager.asyncStartReading();
+//                    MainActivity.mUhfrManager.asyncStopReading();
+//                    MainActivity.mUhfrManager.asyncStartReading();
                 }
 //                onClick(btnStart);
 //                return;
-                Log.e(TAG, "[run] error: " + String.valueOf(UHFRManager.mErr.ordinal()));
+                Log.e(TAG, "[run] error: " + String.valueOf(UHFRManager.mErr.ordinal()) +  ", error name = "+ UHFRManager.mErr);
             }
             if (list1 != null && list1.size() > 0) {//
                 Log.i(TGA, list1.size() + "");
@@ -499,9 +501,9 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             btnExport.setEnabled(false);
             btnClear.setEnabled(false);
             if (isSession1) {
-                MainActivity.mUhfrManager.setGen2session(1);
+//                MainActivity.mUhfrManager.setGen2session(1);
             } else {
-                MainActivity.mUhfrManager.setGen2session(isMulti);
+//                MainActivity.mUhfrManager.setGen2session(isMulti);
             }
             if (isSession1) {
                 MainActivity.mUhfrManager.asyncStartReading(16);
@@ -509,7 +511,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                 Log.i(TGA, "isMulti-true");
                 MainActivity.mUhfrManager.asyncStartReading();
             }
-            handler1.postDelayed(runnable_MainActivity1, 0);
+//            handler1.postDelayed(runnable_MainActivity1, 0);
             isStart = true;
         } else {
             if (!isTid) {
@@ -620,6 +622,35 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             MainActivity.mSetEpcs.clear();
         }
 //        lvEpc.removeAllViews();
+//         MainActivity.mUhfrManager.getYueheTagTemperature(Tools.HexString2Bytes("00000000"));
+        //E0040000B25A1D08
+//        MainActivity.mUhfrManager.write6bTid(0, "E0040000B25A1D09") ;
+//        int qvalue = MainActivity.mUhfrManager.getQvalue() ;
+        List<LogBase6bInfo> list = MainActivity.mUhfrManager.inventory6BTag((short) 20);
+        if (list != null && list.size() > 0) {
+//            byte[] tag6b = MainActivity.mUhfrManager.read6BUser(false, null, 0, 13);
+//            if (tag6b != null) {
+//                showToast("tag6b user = "+ Tools.Bytes2HexString(tag6b, tag6b.length));
+//            }
+
+            boolean writeFlag = MainActivity.mUhfrManager.write6BUser(list.get(0).getbTid(), 11, Tools.HexString2Bytes("bbbb"));
+            showToast("writeFlag = "+ writeFlag);
+        }
+
+
+
+        //温度
+//        String userdata = "48E8";
+//        int integer = Integer.parseInt(userdata.substring(0, 2), 16);
+//        double decimal = (double) (Integer.parseInt(userdata.substring(2, 4), 16)) / 255;
+//        decimal = (double) Math.round(decimal * 100) / 100;
+//        if (integer > 45) {
+////                    tag.setCtesius(integer - 30 + decimal + "℃");
+//            Log.e("temp ", "temp = " + (integer - 45 + decimal )) ;
+//        } else {
+////                    tag.setCtesius("-" + (30 - integer + decimal) + "℃");
+//            Log.e("temp ", "temp = -" + (45 - integer + decimal )) ;
+//        }
     }
 
     //show tips

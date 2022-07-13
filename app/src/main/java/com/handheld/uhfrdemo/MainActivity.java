@@ -59,7 +59,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         initView(); // Init UI
 
         Util.initSoundPool(this);//Init sound pool
-        mSharedPreferences = getSharedPreferences("UHF", MODE_PRIVATE);
+        mSharedPreferences = this.getSharedPreferences("UHF", MODE_PRIVATE);
 
 
     }
@@ -72,6 +72,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         if (currentApiVersion > Build.VERSION_CODES.N) {
             // For Android10.0 module
             instance = ScanUtil.getInstance(this);
+            instance.disableScanKey("133");
             instance.disableScanKey("134");
             instance.disableScanKey("137");
         }
@@ -110,6 +111,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         int currentApiVersion = Build.VERSION.SDK_INT;
         if (currentApiVersion > Build.VERSION_CODES.N) {
             // For Android10.0 module
+            instance.enableScanKey("133");
             instance.enableScanKey("134");
             instance.enableScanKey("137");
         }

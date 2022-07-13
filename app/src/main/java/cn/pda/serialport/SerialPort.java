@@ -64,7 +64,6 @@ public class SerialPort {
 		mFileOutputStream = new FileOutputStream(mFd);
 
 
-
 	}
 	// Getters and setters
 	public InputStream getInputStream() {

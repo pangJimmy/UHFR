@@ -6,7 +6,7 @@ android {
 
     defaultConfig {
         applicationId "com.handheld.uhfr"
-        minSdkVersion 19
+        minSdkVersion 24
         targetSdkVersion 28
         versionCode 19
         versionName "2.0.10"
@@ -26,6 +26,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
         }
     }
+
+    compileOptions {
+        sourceCompatibility 1.8
+        targetCompatibility 1.8
+    }
 }
 
 task clearJar(type: Delete) {
@@ -36,7 +41,7 @@ task clearJar(type: Delete) {
 //打包任务
 task makeJar(type: Jar) {
     //指定生成的jar名
-    baseName 'uhfr_v1.9.3'
+    baseName 'UHF67_v1.0.10'
     //从哪里打包class文件
     from "build/intermediates/javac/debug/classes/"
     //去掉不需要打包的目录和文件
@@ -68,4 +73,9 @@ dependencies {
     implementation 'com.android.support:support-v4:28.0.0'
     implementation files('libs/jxl.jar')
     implementation files('libs/ModuleAPI_J.jar')
+    implementation files('libs\\reader(1).jar')
+    implementation files('libs\\App_Demo_API.jar')
+    implementation files('libs\\DeviceAPIver20150204.jar')
+    implementation files('libs\\logutil-1.5.1.1.jar')
+    implementation files('libs\\logutil-1.5.1.1.jar')
 }

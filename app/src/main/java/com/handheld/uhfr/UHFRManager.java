@@ -1,8 +1,58 @@
-package com.handheld.uhfr;
+    package com.handheld.uhfr;
 
+import android.os.SystemClock;
+import android.support.annotation.NonNull;
 import android.util.Log;
+import android.util.LogPrinter;
 
+import com.gg.reader.api.dal.GClient;
+import com.gg.reader.api.dal.HandlerTag6bLog;
+import com.gg.reader.api.dal.HandlerTag6bOver;
+import com.gg.reader.api.dal.HandlerTagEpcLog;
+import com.gg.reader.api.dal.HandlerTagEpcOver;
+import com.gg.reader.api.dal.HandlerTagGJbLog;
+import com.gg.reader.api.dal.HandlerTagGJbOver;
+import com.gg.reader.api.dal.HandlerTagGbLog;
+import com.gg.reader.api.dal.HandlerTagGbOver;
+import com.gg.reader.api.protocol.gx.EnumG;
+import com.gg.reader.api.protocol.gx.LogBase6bInfo;
+import com.gg.reader.api.protocol.gx.LogBase6bOver;
+import com.gg.reader.api.protocol.gx.LogBaseEpcInfo;
+import com.gg.reader.api.protocol.gx.LogBaseEpcOver;
+import com.gg.reader.api.protocol.gx.LogBaseGJbInfo;
+import com.gg.reader.api.protocol.gx.LogBaseGJbOver;
+import com.gg.reader.api.protocol.gx.LogBaseGbInfo;
+import com.gg.reader.api.protocol.gx.LogBaseGbOver;
+import com.gg.reader.api.protocol.gx.MsgAppGetBaseVersion;
+import com.gg.reader.api.protocol.gx.MsgBaseDestroyEpc;
+import com.gg.reader.api.protocol.gx.MsgBaseGetBaseband;
+import com.gg.reader.api.protocol.gx.MsgBaseGetFreqRange;
+import com.gg.reader.api.protocol.gx.MsgBaseGetFrequency;
+import com.gg.reader.api.protocol.gx.MsgBaseGetPower;
+import com.gg.reader.api.protocol.gx.MsgBaseInventory6b;
+import com.gg.reader.api.protocol.gx.MsgBaseInventoryEpc;
+import com.gg.reader.api.protocol.gx.MsgBaseInventoryGJb;
+import com.gg.reader.api.protocol.gx.MsgBaseInventoryGb;
+import com.gg.reader.api.protocol.gx.MsgBaseLock6b;
+import com.gg.reader.api.protocol.gx.MsgBaseLock6bGet;
+import com.gg.reader.api.protocol.gx.MsgBaseLockEpc;
+import com.gg.reader.api.protocol.gx.MsgBaseSetBaseband;
+import com.gg.reader.api.protocol.gx.MsgBaseSetFreqRange;
+import com.gg.reader.api.protocol.gx.MsgBaseSetFrequency;
+import com.gg.reader.api.protocol.gx.MsgBaseSetPower;
+import com.gg.reader.api.protocol.gx.MsgBaseStop;
+import com.gg.reader.api.protocol.gx.MsgBaseWrite6b;
+import com.gg.reader.api.protocol.gx.MsgBaseWriteEpc;
+import com.gg.reader.api.protocol.gx.Param6bReadUserdata;
+import com.gg.reader.api.protocol.gx.ParamEpcFilter;
+import com.gg.reader.api.protocol.gx.ParamEpcReadEpc;
+import com.gg.reader.api.protocol.gx.ParamEpcReadReserved;
+import com.gg.reader.api.protocol.gx.ParamEpcReadTid;
+import com.gg.reader.api.protocol.gx.ParamEpcReadUserdata;
+import com.gg.reader.api.protocol.gx.ParamFastId;
+import com.gg.reader.api.utils.HexUtils;
 import com.uhf.api.cls.R2000_calibration.TagLED_DATA;
+import com.uhf.api.cls.ReadListener;
 import com.uhf.api.cls.Reader;
 import com.uhf.api.cls.Reader.AntPower;
 import com.uhf.api.cls.Reader.AntPowerConf;
@@ -21,16 +71,37 @@ import com.uhf.api.cls.Reader.TagFilter_ST;
 import com.uhf.api.cls.Reader.deviceVersion;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.Objects;
 
+import cn.com.example.rfid.driver.Driver;
+import cn.com.example.rfid.driver.RfidDriver;
 import cn.pda.serialport.SerialPort;
+import cn.pda.serialport.Tools;
 
 /**
  * @author LeiHuang
  */
 public class UHFRManager {
 
+    //6108
+    private static GClient client;
+    private static List<LogBaseEpcInfo> epcList = new ArrayList<>();
+
+    private static List<LogBaseGbInfo> gbepcList = new ArrayList<>();
+
+    private static List<LogBaseGJbInfo> gjbepcList = new ArrayList<>();
+
+    private static List<LogBase6bInfo> tag6bList = new ArrayList<>();
+
+    //6106
     private static SerialPort sSerialPort;
     private final String tag = "UHFRManager";
     private static Reader reader;
@@ -39,12 +110,26 @@ public class UHFRManager {
     public deviceVersion dv;
     public static READER_ERR mErr;
 
+    //锐迪
+    private static Driver driver;
+
+//    private static boolean is6108 = true;
+    /**
+     * 判断型号。是否为6108   type 0 国芯，1芯联,2锐迪
+     */
+    private static int type = -1;
+
+    private ParamFastId fastId = new ParamFastId();
+
     /**
      * 是否开启了附加数据（作用域只在于本app中，非模块），避免每次调用盘存方法都需要设置该项
      */
 //    private boolean MTR_PARAM_TAG_EMBEDEDDATA = true;
 
-    private static boolean DEBUG = false;
+    private static boolean DEBUG = true;
+
+    private int rPower = 0;
+    private int wPower = 0;
 
     public static void setDebuggable(boolean debuggable) {
         DEBUG = debuggable;
@@ -56,61 +141,287 @@ public class UHFRManager {
         }
     }
 
+    private static void logPrint(String tag, String content) {
+        if (DEBUG) {
+            Log.e("[" + tag + "]->", content);
+        }
+    }
+
+    private static UHFRManager uhfrManager = null;
+
     /**
      * init Uhf module
      *
      * @return UHFRManager
      */
     public static UHFRManager getInstance() {
-        if (connect()) {
-            return new UHFRManager();
+        long enterTime = SystemClock.elapsedRealtime();
+        if (uhfrManager == null) {
+            if (connect()) {
+                uhfrManager = new UHFRManager();
+            }
         }
-        return null;
+        long outTime = SystemClock.elapsedRealtime();
+        Log.i("zeng-", "init uhf time: " + (outTime - enterTime));
+        return uhfrManager;
     }
 
     public boolean close() {
-        if (reader != null) {
-            reader.CloseReader();
+        if (type == 0) {
+            if (client != null) {
+                client.close();
+                client.hdPowerOff();
+            }
+            client = null;
+        } else if (type == 1) {
+            if (reader != null) {
+                reader.CloseReader();
+            }
+            reader = null;
+        } else {
+            //锐迪，未完成
+            logPrint("zeng-", "type2-close");
+            driver.Close_Com();
         }
-        sSerialPort.power_5Voff();
-        reader = null;
+        new SerialPort().power_5Voff();
+        uhfrManager = null;
         return true;
+
     }
 
+    //读版本号1.1.01为国芯， 1.1.02.xx为芯联系列， 1.1.03为锐迪系列
     public String getHardware() {
-        HardwareDetails val = reader.new HardwareDetails();
-        READER_ERR er = reader.GetHardwareDetails(val);
-        if (er == READER_ERR.MT_OK_ERR) {
-            return val.module.toString();
+        String version = null;
+        if (type == 0) {
+            Objects.requireNonNull(client);
+            MsgAppGetBaseVersion msg = new MsgAppGetBaseVersion();
+            client.sendSynMsg(msg);
+            logPrint("MsgAppGetBaseVersion", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                String[] arrays = msg.getBaseVersions().split("\\.");
+                if (arrays.length > 2) {
+                    /**
+                     * 获取固件gx
+                     * X.X.1.X表示通用版本（1或者3表示通用版本支持6c/b; 5表示GJB，6表示GB，7表示GJB和GB）
+                     * baseVersions='1.1.3.15'
+                     */
+                    version ="1.1.01." + arrays[2];
+                }
+//                return msg.getBaseVersions();
+                return  version;
+            }
+            return version;
+        } else if (type == 1) {
+            HardwareDetails val = reader.new HardwareDetails();
+            READER_ERR er = reader.GetHardwareDetails(val);
+            if (er == READER_ERR.MT_OK_ERR) {
+                version = "1.1.02." + val.module.value();
+//                return val.module.toString();
+            }
+            return version;
+
+        } else {
+            //锐迪，未完成
+            version = "1.1.03";
+            return version;
         }
-        return null;
     }
 
     private static boolean connect() {
-        reader = new Reader();
+        // 重置静态变量标志
+        type = -1;
+        isE710 = false;
+        OutputStream outputStream = null;
+        InputStream inputStream = null;
+        SerialPort serialPort = null;
         try {
-            sSerialPort = new SerialPort(13, 115200, 0);
-            sSerialPort.close(13);
-        } catch (SecurityException | IOException e) {
-            e.printStackTrace();
-        }
-        sSerialPort.power_5Von();
-        try {
-            Thread.sleep(100L);
-        } catch (InterruptedException var1) {
-            var1.printStackTrace();
-        }
+            new SerialPort().power_5Von();
+            Thread.sleep(500);
+            serialPort = new SerialPort(13, 115200, 0);
+            // 国芯获取版本号指令
+            String cmd = "5A000101010000EBD5";
+            outputStream = serialPort.getOutputStream();
+            outputStream.write(Tools.HexString2Bytes(cmd));
+            outputStream.flush();
+            Thread.sleep(20);
+            byte[] bytes = new byte[128];
+            inputStream = serialPort.getInputStream();
+            int read = inputStream.read(bytes);
+            String retStr = Tools.Bytes2HexString(bytes, read);
+            logPrint("zeng-", "retStr0:" + retStr);
+            if (retStr.length() >= 10 && retStr.contains("5A00010101")) {
+                // 获取到国芯模块返回
+                type = 0;
+            } else {
+                // 芯联获取版本号指令
+                cmd = "FF00031D0C";
+                outputStream.write(Tools.HexString2Bytes(cmd));
+                outputStream.flush();
+                Thread.sleep(20);
+                read = inputStream.read(bytes);
+                retStr = Tools.Bytes2HexString(bytes, read);
+                logPrint("zeng-", "retStr1:" + retStr);
+                if (retStr.length() > 40) {
+                    // 获取到芯联R2000模块返回
+                    type = 1;
+                    isE710 = false;
+                } else {
+                    // E710
+                    serialPort.close(13);
+                    serialPort = new SerialPort(13, 921600, 0);
+                    outputStream = serialPort.getOutputStream();
+                    inputStream = serialPort.getInputStream();
+                    cmd = "FF00031D0C";
+                    outputStream.write(Tools.HexString2Bytes(cmd));
+                    outputStream.flush();
+                    Thread.sleep(20);
+                    read = inputStream.read(bytes);
+                    retStr = Tools.Bytes2HexString(bytes, read);
+                    logPrint("zeng-", "retStr2:" + retStr);
+                    if (retStr.length() > 40) {
+                        // 获取到芯联E710模块返回
+                        type = 1;
+                        isE710 = true;
+                    } else {
+                        serialPort = new SerialPort(13, 115200, 0);
+                        cmd = "A55A000902000B0D0A";
+                        outputStream = serialPort.getOutputStream();
+                        inputStream = serialPort.getInputStream();
+                        outputStream.write(Tools.HexString2Bytes(cmd));
+                        outputStream.flush();
+                        Thread.sleep(20);
+                        read = inputStream.read(bytes);
+                        retStr = Tools.Bytes2HexString(bytes, read);
+                        if (retStr.length() > 10) {
+                            logPrint("connect", "onCreate 锐迪 retStr: " + retStr);
+                            type = 2;
+                        }
 
-        READER_ERR er = reader.InitReader_Notype("/dev/ttyMT1", 1);
-        if (er == READER_ERR.MT_OK_ERR) {
-            connect2();
-            return true;
-        } else {
-            return false;
+                    }
+                }
+            }
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (outputStream != null) {
+                    outputStream.close();
+                }
+                if (inputStream != null) {
+                    inputStream.close();
+                }
+                if (serialPort != null) {
+                    serialPort.close(13);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
+        logPrint("Zeng-", "type:" + type + ",isE710:" + isE710);
+        if (type == 0) {
+            client = new GClient();
+            if (client.openHdSerial("13:115200", 0)) {
+                onTagHandler();
+                client.hdPowerOn();
+                try {
+                    Thread.sleep(100L);
+                } catch (InterruptedException var1) {
+                    var1.printStackTrace();
+                }
+                return true;
+            }
+        } else if (type == 1) {
+            reader = new Reader();
+            READER_ERR er;
+            long enterTime = SystemClock.elapsedRealtime();
+            if (isE710) {
+                // E710 波特率921600
+                er = reader.InitReader_Notype("/dev/ttyMT1:921600", 1);
+            } else {
+                // R2000 波特率115200
+                er = reader.InitReader_Notype("/dev/ttyMT1", 1);
+            }
+            long outTime = SystemClock.elapsedRealtime();
+            Log.i("zeng-", "InitReader cusTime: " + (outTime - enterTime));
+            if (er == READER_ERR.MT_OK_ERR) {
+                if (connect2()) {
+                    return true;
+                }
+            }
+            reader.CloseReader();
+        } else if (type == 2) {
+            //锐迪
+            driver = new RfidDriver();
+            if (driver != null) {
+
+                int Status = 0;
+                Status = driver.initRFID("/dev/ttyMT1", 115200);
+                logPrint("zeng-", "init+status:" + Status);
+                if (-1000 == Status) {
+
+                } else {
+                    return true;
+                }
+            } else {
+            }
+        }
+        new SerialPort().power_5Voff();
+        return false;
     }
 
+
+    private static boolean isE710 = false;
+
+    private static boolean connectE710() {
+        try {
+            new SerialPort().power_5Von();
+            Thread.sleep(500);
+            // 芯联获取版本号指令
+            String cmd = "FF00031D0C";
+            SerialPort serialPort = new SerialPort(13, 921600, 0);;
+            OutputStream outputStream = serialPort.getOutputStream();
+            InputStream inputStream = serialPort.getInputStream();
+            outputStream.write(Tools.HexString2Bytes(cmd));
+            outputStream.flush();
+            Thread.sleep(20);
+            byte[] bytes = new byte[128];
+            int read;
+            String retStr;
+            read = inputStream.read(bytes);
+            retStr = Tools.Bytes2HexString(bytes, read);
+            if (retStr.length() > 10) {
+                logPrint("connect", "connectE710 xinlian retStr: " + retStr);
+                type = 1;
+            }
+            serialPort.close(13);
+        } catch (Exception e) {
+
+        }
+        if (type == 1) {
+            reader = new Reader();
+            //波特率921600
+            READER_ERR er = reader.InitReader_Notype("/dev/ttyMT1:921600", 1);
+            logPrint("connect", "connectE710 xinlian retStr: " + er.name());
+            if (er == READER_ERR.MT_OK_ERR) {
+                connect2();
+                //判断是否为E710模块
+//                HardwareDetails val = reader.new HardwareDetails();
+//                er = reader.GetHardwareDetails(val);
+//                logPrint("pang", "" + val.module)  ;
+//                if(val.module == Reader.Module_Type.MODOULE_SLR7100){
+//                    boolean baudFlag = setBaudrate(921600);
+//                    logPrint("pang", "baudFlag = " + baudFlag)  ;
+//                }
+                isE710 = false;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    //芯联专属方法
     private static boolean connect2() {
+        long enterTime = SystemClock.elapsedRealtime();
         Inv_Potls_ST ipst = reader.new Inv_Potls_ST();
         List<SL_TagProtocol> ltp = new ArrayList<SL_TagProtocol>();
         ltp.add(SL_TagProtocol.SL_TAG_PROTOCOL_GEN2);
@@ -123,70 +434,517 @@ public class UHFRManager {
             ipl.potl = stp[i];
             ipst.potls[0] = ipl;
         }
-
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_INVPOTL, ipst);
+        long outTime = SystemClock.elapsedRealtime();
+        Log.i("zeng-", "connect2 cusTime: " + (outTime - enterTime));
         return er == READER_ERR.MT_OK_ERR;
     }
 
-    public READER_ERR asyncStartReading() {
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
-        logPrint("asyncStartReading, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
-        // 设置gen2 tag编码(PROF)
-//        int[] val = new int[] {19};//profile3，默认M4
-//        er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_TAGENCODING, val);
-//        logPrint("asyncStartReading, ParamSet MTR_PARAM_POTL_GEN2_TAGENCODING result: " + er.toString());
-        // option = 0, 多标签快速模式(不含附加数据)
-        return reader.AsyncStartReading(ants, 1, 0);
-        // option = 16, 多标签手持机模式(不含附加数据)
-//        return reader.AsyncStartReading(ants, 1, 16);
+    //芯联专用，设置波特率
+    public static boolean setBaudrate(int baudtrate) {
+        Reader.Default_Param dp = reader.new Default_Param();
+        dp.isdefault = false;
+        dp.key = Mtr_Param.MTR_PARAM_SAVEINMODULE_BAUD;
+        dp.val = baudtrate;
+//        int[] val = {baudtrate} ;
+        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_SAVEINMODULE_BAUD, dp);
+//        logPrint("pang ", "Error = " + er.name());
+        return er == READER_ERR.MT_OK_ERR;
     }
 
-    public READER_ERR asyncStartReading(int option) {
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
-        logPrint("asyncStartReading, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
-        // 设置gen2 tag编码(PROF)
+
+    public READER_ERR asyncStartReading() {
+        if (type == 0) {
+            MsgBaseGetBaseband getBaseband = new MsgBaseGetBaseband();
+            client.sendSynMsg(getBaseband);
+            if (getBaseband.getRtCode() == 0) {
+                MsgBaseInventoryEpc inventoryEpc = new MsgBaseInventoryEpc();
+                inventoryEpc.setAntennaEnable(EnumG.AntennaNo_1);
+                inventoryEpc.setInventoryMode(EnumG.InventoryMode_Inventory);
+                if (filter != null && filter.isMatching()) {
+                    inventoryEpc.setFilter(filter.getFilter());
+                }
+                if (fastId.getFastId() != 0) {
+                    inventoryEpc.setParamFastId(fastId);
+                }
+                client.sendSynMsg(inventoryEpc);
+                logPrint("MsgBaseInventoryEpc", inventoryEpc.getRtMsg());
+                return inventoryEpc.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+            }
+            return READER_ERR.MT_CMD_FAILED_ERR;
+        } else if (type == 1) {
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
+//
+//            logPrint("asyncStartReading, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
+            // 设置gen2 tag编码(PROF)
 //        int[] val = new int[] {19};//profile3，默认M4
 //        er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_TAGENCODING, val);
 //        logPrint("asyncStartReading, ParamSet MTR_PARAM_POTL_GEN2_TAGENCODING result: " + er.toString());
-        return reader.AsyncStartReading(ants, 1, option);
+            // option = 0, 多标签快速模式(不含附加数据)
+            //E710智能模式
+            if (isE710) {
+                /*新E7快速模式*/
+                logPrint("pang", "AsyncStartReading" );
+                Reader.CustomParam_ST cpst=reader.new CustomParam_ST();
+                cpst.ParamName="Reader/Ex10fastmode";
+                byte[] vals=new byte[22];
+                vals[0]=1;
+                vals[1]=20;
+                for(int i=0;i<20;i++)
+                    vals[2+i]=0;
+                cpst.ParamVal=vals;
+                reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpst);
+                return reader.AsyncStartReading(ants, 1, 0);
+
+
+
+//                Object[] objs3 = new Object[5];
+//                objs3[0] = 500;
+//                objs3[1] = 50;
+//                objs3[2] = 100;
+//                objs3[3] = 1;
+//                objs3[4] = 101;
+//                boolean flag = false;
+//                try {
+//                    flag = reader.Set_IT_Params(Reader.IT_MODE.IT_MODE_E7, objs3);
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//                logPrint("Set_IT_Params", "Set_IT_Params = " + flag);
+//                reader.addReadListener(readListener);
+//
+//                er = reader.AsyncStartReading_IT(Reader.IT_MODE.IT_MODE_E7, ants, 1, 0);
+//                logPrint("AsyncStartReading_IT, IT_MODE_E7 result: " + er.toString());
+
+//                return er;
+                /**/
+            } else {
+                int session = getGen2session();
+                if (session == 1) {
+                    return reader.AsyncStartReading(ants, 1, 16);
+                } else {
+                    return reader.AsyncStartReading(ants, 1, 0);
+                }
+
+            }
+
+            // option = 16, 多标签手持机模式(不含附加数据)
+//        return reader.AsyncStartReading(ants, 1, 16);
+        } else {
+            //锐迪，未完成
+//            logPrint("zeng-", "moshi:" + driver.Inventory_Model_Get());
+//
+//            String val = driver.GetGen2Para();
+//            logPrint("zeng-", val);
+            // 1. 设置模式4, 不掉电保存
+            driver.Inventory_Model_Set(0, true);
+            int Status = driver.readMore(0);
+            if (Status != 1020) {
+                return READER_ERR.MT_CMD_FAILED_ERR;
+            } else {
+
+                return READER_ERR.MT_OK_ERR;
+            }
+        }
+    }
+
+    private List<TAGINFO> listTag = new ArrayList<>();
+    //E710 E智能模式的异步接收数据
+    private ReadListener readListener = new ReadListener() {
+        @Override
+        public void tagRead(Reader reader, TAGINFO[] taginfos) {
+            synchronized (listTag) {
+                if (taginfos != null && taginfos.length > 0) {
+//                    listTag.clear();
+                    Collections.addAll(listTag, taginfos);
+                }
+            }
+        }
+    };
+
+    public READER_ERR asyncStartReading(int option) {
+        if (type == 0) {
+            MsgBaseGetBaseband getBaseband = new MsgBaseGetBaseband();
+            client.sendSynMsg(getBaseband);
+            if (getBaseband.getRtCode() == 0) {
+                MsgBaseInventoryEpc inventoryEpc = new MsgBaseInventoryEpc();
+                inventoryEpc.setAntennaEnable(EnumG.AntennaNo_1);
+                inventoryEpc.setInventoryMode(EnumG.InventoryMode_Inventory);
+                if (filter != null && filter.isMatching()) {
+                    inventoryEpc.setFilter(filter.getFilter());
+                }
+                if (fastId.getFastId() != 0) {
+                    inventoryEpc.setParamFastId(fastId);
+                }
+                client.sendSynMsg(inventoryEpc);
+                logPrint("MsgBaseInventoryEpc", inventoryEpc.getRtMsg());
+                return inventoryEpc.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+            }
+            return READER_ERR.MT_CMD_FAILED_ERR;
+
+        } else if (type == 1) {
+
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
+            logPrint("asyncStartReading, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
+            // 设置gen2 tag编码(PROF)
+//        int[] val = new int[] {19};//profile3，默认M4
+//        er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_TAGENCODING, val);
+//        logPrint("asyncStartReading, ParamSet MTR_PARAM_POTL_GEN2_TAGENCODING result: " + er.toString());
+            if (isE710) {
+                /*新E7快速模式，有待验证                 */
+                logPrint("pang", "AsyncStartReading" );
+                Reader.CustomParam_ST cpst=reader.new CustomParam_ST();
+                cpst.ParamName="Reader/Ex10fastmode";
+                byte[] vals=new byte[22];
+                vals[0]=1;
+                vals[1]=20;
+                for(int i=0;i<20;i++)
+                    vals[2+i]=0;
+                cpst.ParamVal=vals;
+                reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpst);
+
+                return reader.AsyncStartReading(ants, 1, 0);
+            }
+            return reader.AsyncStartReading(ants, 1, option);
+        } else {
+            //锐迪，未完成
+            setGen2("0140FD5300000000");
+            int Status = driver.readMore(0);
+            if (Status != 1020) {
+                return READER_ERR.MT_CMD_FAILED_ERR;
+            } else {
+
+                return READER_ERR.MT_OK_ERR;
+            }
+        }
     }
 
     public READER_ERR asyncStopReading() {
-        return reader.AsyncStopReading();
-    }
 
-    public boolean setInventoryFilter(byte[] fdata, int fbank, int fstartaddr,
-                                      boolean matching) {
-        TagFilter_ST g2tf;
-        g2tf = reader.new TagFilter_ST();
-        g2tf.fdata = fdata;
-        g2tf.flen = fdata.length * 8;
-        if (matching) {
-            g2tf.isInvert = 0;
+        if (type == 0) {
+            MsgBaseStop stop = new MsgBaseStop();
+            client.sendSynMsg(stop);
+            logPrint("MsgBaseStop", stop.getRtMsg());
+            return stop.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+
+        } else if (type == 1) {
+            if (isE710) {
+                READER_ERR er = reader.AsyncStopReading();
+                logPrint("pang", "asyncStopReading");
+                ///////////////E7智能模式////////
+//                READER_ERR er = reader.AsyncStopReading_IT();
+//                reader.removeReadListener(readListener);
+//                logPrint("pang", "AsyncStopReading_IT er = " + er.name());
+                ///////////////////////////////
+                return er;
+            } else {
+                return reader.AsyncStopReading();
+            }
+
         } else {
-            g2tf.isInvert = 1;
+            //锐迪，未完成
+            driver.stopRead();
+            logPrint("zeng-", "cont:" + count);
+            return READER_ERR.MT_OK_ERR;
         }
-        g2tf.bank = fbank;
-        g2tf.startaddr = fstartaddr * 16;
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
-        if (er != READER_ERR.MT_OK_ERR) {
-            logPrint("setInventoryFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
-            return false;
-        }
-        return true;
     }
 
-    public boolean setCancleInventoryFilter() {
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
-        if (er != READER_ERR.MT_OK_ERR) {
-            logPrint("setCancleInventoryFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
-            return false;
+    public boolean setInventoryFilter(byte[] fdata, int fbank, int fstartaddr, boolean matching) {
+        if (type == 0) {
+            ParamEpcFilter paramEpcFilter = new ParamEpcFilter();
+            paramEpcFilter.setArea(fbank);
+            paramEpcFilter.setBitStart(fstartaddr * 16);//word
+            paramEpcFilter.setbData(fdata);
+            paramEpcFilter.setBitLength(fdata.length * 8);
+            filter = new CusParamFilter(paramEpcFilter, matching);
+            return true;
+        } else if (type == 1) {
+            TagFilter_ST g2tf;
+            g2tf = reader.new TagFilter_ST();
+            g2tf.fdata = fdata;
+            g2tf.flen = fdata.length * 8;
+            if (matching) {
+                g2tf.isInvert = 0;
+            } else {
+                g2tf.isInvert = 1;
+            }
+            g2tf.bank = fbank;
+            g2tf.startaddr = fstartaddr * 16;
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
+            if (er != READER_ERR.MT_OK_ERR) {
+                logPrint("setInventoryFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+                return false;
+            }
+            return true;
+        } else {
+//锐迪未完成//
+            return true;
+
+
         }
-        return true;
     }
+
+    //
+    public boolean setCancleInventoryFilter() {
+        if (type == 0) {
+            filter = null;
+            return true;
+        } else if (type == 1) {
+
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
+            if (er != READER_ERR.MT_OK_ERR) {
+                logPrint("setCancleInventoryFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+                return false;
+            }
+            return true;
+        } else {
+//锐迪未完成//
+            return true;
+        }
+    }
+
+
+    //bank 0:RESERVED区，1:EPC区，2:TID区，3:USER区//国芯的方法
+    public List<LogBaseGbInfo> formatGBData(int bank) {
+
+        synchronized (gbepcList) {
+            List<LogBaseGbInfo> mgblist = new ArrayList<>();
+            mgblist.clear();
+            if (gbepcList != null && !gbepcList.isEmpty()) {
+                mgblist.addAll(gbepcList);
+            }
+            gbepcList.clear();
+            return mgblist;
+        }
+    }
+
+    public List<LogBase6bInfo> format6BData() {
+
+        synchronized (tag6bList) {
+            List<LogBase6bInfo> mgblist = new ArrayList<>();
+            mgblist.clear();
+            if (tag6bList != null && !tag6bList.isEmpty()) {
+                mgblist.addAll(tag6bList);
+            }
+            tag6bList.clear();
+            return mgblist;
+        }
+    }
+
+    //bank 0:RESERVED区，1:EPC区，2:TID区，3:USER区//国芯的方法
+    public List<LogBaseGJbInfo> formatGJBData(int bank) {
+
+        synchronized (gjbepcList) {
+            List<LogBaseGJbInfo> mgblist = new ArrayList<>();
+            mgblist.clear();
+            if (gjbepcList != null && !gjbepcList.isEmpty()) {
+                mgblist.addAll(gjbepcList);
+            }
+            gjbepcList.clear();
+            return mgblist;
+        }
+    }
+
+
+    private CusParamFilter filter;
+
+    //bank 0:RESERVED区，1:EPC区，2:TID区，3:USER区//国芯的方法
+    public List<TAGINFO> formatData(int bank) {
+        synchronized (epcList) {
+            HashMap<String, TAGINFO> tagMap = new HashMap<>();
+            for (LogBaseEpcInfo info : epcList) {
+                TAGINFO taginfo = new Reader().new TAGINFO();
+                taginfo.AntennaID = (byte) info.getAntId();
+                taginfo.Frequency = info.getFrequencyPoint().intValue();
+                taginfo.TimeStamp = info.getReplySerialNumber().intValue();
+                switch (bank) {
+                    case 0:
+                        if (info.getReserved() != null) {
+                            taginfo.EmbededData = info.getbRes();
+                            taginfo.EmbededDatalen = (short) info.getbRes().length;
+                        }
+                        break;
+                    case 1:
+                        if (info.getEpcData() != null) {
+                            taginfo.EmbededData = info.getbEpcData();
+                            taginfo.EmbededDatalen = (short) info.getbEpcData().length;
+                        }
+                        break;
+                    case 2:
+                        if (info.getTid() != null) {
+                            taginfo.EmbededData = info.getbTid();
+                            taginfo.EmbededDatalen = (short) info.getbTid().length;
+                        }
+                        break;
+                    case 3:
+                        if (info.getUserdata() != null) {
+                            taginfo.EmbededData = info.getbUser();
+                            taginfo.EmbededDatalen = (short) info.getbUser().length;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                taginfo.EpcId = info.getbEpc();
+                taginfo.Epclen = (short) info.getbEpc().length;
+                taginfo.PC = HexUtils.int2Bytes(info.getPc());
+//                taginfo.Temperature = info.getCtesiusLtu31();
+                //epcbank读取会影响速度，新增协议0x15获取
+                if (info.getCrc() != 0) {
+                    taginfo.CRC = HexUtils.int2Bytes(info.getCrc());
+                }
+                taginfo.protocol = SL_TagProtocol.SL_TAG_PROTOCOL_GEN2;
+                taginfo.Phase = info.getPhase();
+                double v = -39.9 + 6 * log2(info.getRssi());
+                taginfo.RSSI = (int) Math.round(v);
+                if (info.getTid() != null) {
+                    if (!tagMap.containsKey(info.getTid())) {
+                        taginfo.ReadCnt = 1;
+                    } else {
+                        TAGINFO temp = tagMap.get(info.getTid());
+                        if (temp != null) {
+                            temp.ReadCnt += 1;
+                            tagMap.put(info.getTid(), temp);
+                        }
+                    }
+                    tagMap.put(info.getTid(), taginfo);
+                } else {
+                    if (!tagMap.containsKey(info.getEpc())) {
+                        taginfo.ReadCnt = 1;
+                        tagMap.put(info.getEpc(), taginfo);
+                    } else {
+                        TAGINFO temp = tagMap.get(info.getEpc());
+                        if (temp != null) {
+                            temp.ReadCnt += 1;
+                            tagMap.put(info.getEpc(), temp);
+                        }
+                    }
+                }
+            }
+            epcList.clear();
+            return new ArrayList<>(tagMap.values());
+        }
+    }
+
+    //double v1 = -39.9 + 6*log2()
+    //国芯计算RSSI值
+    private double log2(double N) {
+        return Math.log(N / 190) / Math.log(2);
+    }
+
+    //bank 0:RESERVED区，1:EPC区，2:TID区，3:USER区//国芯的方法
+    public List<com.handheld.uhfr.Reader.TEMPTAGINFO> formatData() {
+        synchronized (epcList) {
+            HashMap<String, com.handheld.uhfr.Reader.TEMPTAGINFO> tagMap = new HashMap<>();
+            for (LogBaseEpcInfo info : epcList) {
+                com.handheld.uhfr.Reader.TEMPTAGINFO taginfo = new com.handheld.uhfr.Reader.TEMPTAGINFO();
+                taginfo.AntennaID = (byte) info.getAntId();
+                taginfo.Frequency = info.getFrequencyPoint().intValue();
+                taginfo.TimeStamp = info.getReplySerialNumber().intValue();
+                //从user区读出温度数据
+                if (info.getUserdata() != null) {
+                    logPrint("pang", "pang, " + info.getUserdata());
+//                            taginfo.EmbededData = info.getbUser();
+//                            taginfo.EmbededDatalen = (short) info.getbUser().length;
+                    //宜链
+//                    String userdata = "48E8";
+                    String userdata = info.getUserdata();
+                    if (userdata != null && !"0000".equals(userdata)) {
+                        int integer = Integer.parseInt(userdata.substring(0, 2), 16);
+                        double decimal = (double) (Integer.parseInt(userdata.substring(2, 4), 16)) / 255;
+                        decimal = (double) Math.round(decimal * 100) / 100;
+                        if (integer > 45) {
+                            logPrint("temp ", "temp = " + (integer - 45 + decimal));
+                            taginfo.Temperature = (integer - 45 + decimal);
+                        } else {
+                            logPrint("temp ", "temp = -" + (45 - integer + decimal));
+                            taginfo.Temperature = -(45 - integer + decimal);
+                        }
+                    }
+
+                } else {
+                    NumberFormat nf = NumberFormat.getInstance();
+                    nf.setMaximumFractionDigits(2);
+                    //悦和
+                    taginfo.Temperature = (Double.valueOf(nf.format(info.getCtesiusLtu31() * 0.01)));
+                }
+
+                //
+                taginfo.EpcId = info.getbEpc();
+                taginfo.Epclen = (short) info.getbEpc().length;
+                taginfo.PC = HexUtils.int2Bytes(info.getPc());
+
+                //epcbank读取会影响速度，新增协议0x15获取
+                if (info.getCrc() != 0) {
+                    taginfo.CRC = HexUtils.int2Bytes(info.getCrc());
+                }
+                taginfo.protocol = com.handheld.uhfr.Reader.SL_TagProtocol.SL_TAG_PROTOCOL_GEN2;
+                taginfo.Phase = info.getPhase();
+                double v = -39.9 + 6 * log2(info.getRssi());
+                taginfo.RSSI = (int) Math.round(v);
+                if (info.getTid() != null) {
+                    if (!tagMap.containsKey(info.getTid())) {
+                        taginfo.ReadCnt = 1;
+                    } else {
+                        com.handheld.uhfr.Reader.TEMPTAGINFO temp = tagMap.get(info.getTid());
+                        if (temp != null) {
+                            temp.ReadCnt += 1;
+                            tagMap.put(info.getTid(), temp);
+                        }
+                    }
+                    tagMap.put(info.getTid(), taginfo);
+                } else {
+                    if (!tagMap.containsKey(info.getEpc())) {
+                        taginfo.ReadCnt = 1;
+                        tagMap.put(info.getEpc(), taginfo);
+                    } else {
+                        com.handheld.uhfr.Reader.TEMPTAGINFO temp = tagMap.get(info.getEpc());
+                        if (temp != null) {
+                            temp.ReadCnt += 1;
+                            tagMap.put(info.getEpc(), temp);
+                        }
+                    }
+                }
+            }
+            epcList.clear();
+            return new ArrayList<>(tagMap.values());
+        }
+    }
+
+    //     排除 fData-过滤的数据//国芯的方法
+    public List<TAGINFO> formatExcludeData(int bank, byte[] fData) {
+        List<TAGINFO> tagInfos = formatData(bank);
+        List<TAGINFO> temp = new ArrayList<>();
+        for (TAGINFO info : tagInfos) {
+            if (!HexUtils.bytes2HexString(info.EmbededData).equals(HexUtils.bytes2HexString(fData))) {
+                temp.add(info);
+            }
+        }
+        return temp;
+    }
+
+    TAGINFO taginfo = new Reader().new TAGINFO();
 
     public List<TAGINFO> tagInventoryRealTime() {
-        READER_ERR er;
+        List<TAGINFO> list = new ArrayList<>();
+        if (type == 0) {
+            if (filter != null && !filter.isMatching()) {
+                return formatExcludeData(4, filter.getFilter().getbData());
+            }
+            return formatData(4);
+        } else if (type == 1) {
+            ///////////////////E710///////////////////////////////
+//            if (isE710) {
+//                synchronized (listTag) {
+//                    list.addAll(listTag);
+//                    logPrint("pang", "tagInventoryRealTime : listTag size = " + listTag.size());
+//                    listTag.clear();
+//                    return list;
+//                }
+                ///////////////////E710///////////////////////////////
+//            }else{
+
+                READER_ERR er;
 //        if (MTR_PARAM_TAG_EMBEDEDDATA) {
 //        er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
 //        Log.d(tag, "[tagInventoryRealTime] : 0");
@@ -194,55 +952,379 @@ public class UHFRManager {
 //                MTR_PARAM_TAG_EMBEDEDDATA = false;
 //        }
 //        }
-        List<TAGINFO> list = new ArrayList<>();
-        int[] tagcnt = new int[1];
-        er = reader.AsyncGetTagCount(tagcnt);
-        if (er != READER_ERR.MT_OK_ERR) {
-            mErr = er;
-            return null;
-        }
-        for (int i = 0; i < tagcnt[0]; i++) {
-            TAGINFO tfs = reader.new TAGINFO();
-            er = reader.AsyncGetNextTag(tfs);
-            if (er == READER_ERR.MT_OK_ERR) {
-                list.add(tfs);
+                int[] tagcnt = new int[1];
+                er = reader.AsyncGetTagCount(tagcnt);
+
+                if (er != READER_ERR.MT_OK_ERR) {
+                    mErr = er;
+                    return null;
+                }
+                for (int i = 0; i < tagcnt[0]; i++) {
+                    TAGINFO tfs = reader.new TAGINFO();
+                    er = reader.AsyncGetNextTag(tfs);
+
+                    if (er == READER_ERR.MT_OK_ERR) {
+                        list.add(tfs);
+                    }
+                }
+//            }
+
+
+        } else {
+            String s = driver.GetBufData();
+            logPrint("zeng-", "count = " + count + ", s:getBufData:" + s);
+            if (s != null && !s.equals("null")) {
+                list.add(getBuf(s));
+//                count++;
+//                getBuf(s,taginfo);
+
             }
+//            int count = 5 ;
+//            while (count > 0) {
+//
+//                count--;
+//                try {
+//                    Thread.sleep(10);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+            //锐迪，未完成
         }
         return list;
     }
 
-    public boolean stopTagInventory() {
-        READER_ERR er = reader.AsyncStopReading();
-        if (er != READER_ERR.MT_OK_ERR) {
-            logPrint("stopTagInventory, AsyncStopReading result: " + er.toString());
-            return false;
+
+    int count = 0;
+
+    //锐迪处理数据
+    public TAGINFO getBuf(String getBuffString) {
+        TAGINFO tfs = new Reader().new TAGINFO();
+        ;
+        int Hb = 0;
+        int Lb = 0;
+        int rssi = 0;
+        String[] tmp = new String[3];
+        HashMap<String, String> temp = new HashMap<>();
+        String text = getBuffString.substring(4);
+        String len = getBuffString.substring(0, 2);
+        int epclen = (Integer.parseInt(len, 16) / 8) * 4;
+        tmp[0] = text.substring(epclen, text.length() - 6);
+        tmp[1] = text.substring(0, text.length() - 6);
+        tmp[2] = text.substring(text.length() - 6, text.length() - 2);
+
+        if (4 != tmp[2].length()) {
+            tmp[2] = "0000";
+        } else {
+            Hb = Integer.parseInt(tmp[2].substring(0, 2), 16);
+            Lb = Integer.parseInt(tmp[2].substring(2, 4), 16);
+            rssi = ((Hb - 256 + 1) * 256 + (Lb - 256)) / 10;
         }
-        return true;
+
+        tfs.EpcId = Tools.HexString2Bytes(tmp[1]);
+        tfs.Epclen = (short) (tmp[1].length() / 4);
+        tfs.RSSI = Integer.valueOf(rssi);
+        count++;
+        return tfs;
     }
 
+    public boolean stopTagInventory() {
+        if (type == 0) {
+
+            READER_ERR reader_err = asyncStopReading();
+            return reader_err.value() == 0;
+        } else if (type == 1) {
+            READER_ERR er = reader.AsyncStopReading();
+            if (er != READER_ERR.MT_OK_ERR) {
+                logPrint("stopTagInventory, AsyncStopReading result: " + er.toString());
+                return false;
+            }
+            return true;
+        } else {
+            //锐迪，未完成
+//            logPrint("zeng-","cont:"+count);
+            READER_ERR reader_err = asyncStopReading();
+            return reader_err.value() == 0;
+        }
+    }
+
+    //
     public List<TAGINFO> tagInventoryByTimer(short readtime) {
-        READER_ERR er;
+        if (type == 0) {
+            MsgBaseInventoryEpc msg = new MsgBaseInventoryEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            if (filter != null && filter.isMatching()) {
+                msg.setFilter(filter.getFilter());
+            }
+//            if (fastId.getFastId() != 0) {
+//                msg.setParamFastId(fastId);
+//            }
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseInventoryEpc", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(readtime);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    logPrint("MsgBaseStop", stop.getRtCode() + "");
+                    if (filter != null && !filter.isMatching()) {
+                        return formatExcludeData(4, filter.getFilter().getbData());
+                    }
+                    return formatData(4);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+        } else if (type == 1) {
+            READER_ERR er;
 //        if (MTR_PARAM_TAG_EMBEDEDDATA) {
-        er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
-        logPrint("tagInventoryByTimer, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
+            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, null);
+            logPrint("tagInventoryByTimer, ParamSet MTR_PARAM_TAG_EMBEDEDDATA result: " + er.toString());
 //        if (er == READER_ERR.MT_OK_ERR) {
 //                MTR_PARAM_TAG_EMBEDEDDATA = false;
 //        }
 //        }
-        List<TAGINFO> list = new ArrayList<>();
+            List<TAGINFO> list = new ArrayList<>();
 
-        int[] tagcnt = new int[1];
-        er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
-        if (er != READER_ERR.MT_OK_ERR) {
-            mErr = er;
-            return null;
-        }
-        for (int i = 0; i < tagcnt[0]; i++) {
-            TAGINFO tfs = reader.new TAGINFO();
-            er = reader.GetNextTag(tfs);
-            if (er == READER_ERR.MT_OK_ERR) {
-                list.add(tfs);
+            int[] tagcnt = new int[1];
+            er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
+            logPrint("tagInventoryByTimer, TagInventory_Raw er: " + er.toString() + "; tagcnt[0]=" + tagcnt[0]);
+            if (er != READER_ERR.MT_OK_ERR) {
+
+                mErr = er;
+                return null;
             }
+            for (int i = 0; i < tagcnt[0]; i++) {
+                TAGINFO tfs = reader.new TAGINFO();
+                er = reader.GetNextTag(tfs);
+                if (er == READER_ERR.MT_OK_ERR) {
+                    list.add(tfs);
+                }
+            }
+            return list;
+        } else {
+//锐迪未完成//
+            List<TAGINFO> list = new ArrayList<>();
+            TAGINFO taginfo = new Reader().new TAGINFO();
+            String s = driver.SingleRead(10).trim();
+            if (!s.equals("获取失败") && !s.equals("null")) {
+                logPrint("zeng-", "s2:" + s);
+                taginfo.EpcId = Tools.HexString2Bytes(s);
+                taginfo.Epclen = (short) taginfo.EpcId.length;
+                list.add(taginfo);
+            }
+            return list;
+
+        }
+    }
+
+    //6B盘存
+    public List<LogBase6bInfo> inventory6BTag(short readtime) {
+        List<LogBase6bInfo> list = null;
+        if (type == 0) {
+            MsgBaseInventory6b msg = new MsgBaseInventory6b();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            client.sendSynMsg(msg);
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(readtime);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    list = format6BData();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }
+
+        return list;
+    }
+
+    //读6B user区
+    public byte[] read6BUser(boolean isMatch, byte[] tid, int startAddr, int len) {
+        byte[] data = null ;
+        if (type == 0) {
+            MsgBaseInventory6b msg = new MsgBaseInventory6b();
+            //获取天线
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            msg.setArea(EnumG.ReadMode6b_Userdata);
+            //匹配参数
+            Param6bReadUserdata userdata = new Param6bReadUserdata();
+            userdata.setStart(startAddr);
+            userdata.setLen(len);
+            msg.setReadUserdata(userdata);
+            //是否匹配TID
+            if (isMatch && tid != null) {
+                msg.setHexMatchTid(Tools.Bytes2HexString(tid, tid.length));
+            }
+            //发送指令
+            client.sendSynMsg(msg);
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(20);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    List<LogBase6bInfo> list6B = format6BData() ;
+                    if (list6B != null && list6B.size() > 0) {
+                        data = list6B.get(0).getbUser();
+                    }
+
+                } catch (Exception e) {
+
+                }
+            }
+        }
+        return data ;
+    }
+
+    //写6B区
+    public boolean write6BUser(byte[] tid, int startAddr, byte[] data) {
+        boolean flag = false;
+        if (type == 0) {
+            MsgBaseWrite6b msg = new MsgBaseWrite6b();
+            //天线
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            //起始地址
+            msg.setStart(startAddr);
+            //设置匹配的TID
+            msg.setbMatchTid(tid);
+            //数据内容
+            msg.setBwriteData(data);
+            //发送指令
+            client.sendSynMsg(msg);
+            if (msg.getRtCode() == 0) {
+                flag = true;
+            }
+        }
+        return flag;
+    }
+
+    //锁定6B，按字节锁定
+    public boolean lock6B(byte[] tid, int lockIndex) {
+        boolean flag = false;
+        if (type == 0) {
+            MsgBaseLock6b msg = new MsgBaseLock6b();
+            //天线
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            //待锁定标签TID
+            msg.setbMatchTid(tid);
+            //锁定地址
+            msg.setLockIndex(lockIndex);
+            //发送指令
+            client.sendSynMsg(msg);
+            if (msg.getRtCode() == 0) {
+                flag = true;
+            }
+        }
+
+        return flag;
+    }
+
+    //查询锁定
+    public boolean lock6BQuery(byte[] tid , int lockIndex) {
+        boolean flag = false ;
+        if (type == 0) {
+            MsgBaseLock6bGet msg = new MsgBaseLock6bGet();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setbMatchTid(tid);
+            msg.setLockIndex(lockIndex) ;
+            client.sendSynMsg(msg);
+            if (msg.getRtCode() == 0) {
+              flag = (msg.getLockState() == 0 ? true:false );
+            }
+        }
+
+
+        return flag ;
+    }
+
+    /****
+     * 盘存国标标签
+     * @param isInventoryTid
+     * @param readtime
+     * @return
+     */
+    //国芯
+    public List<LogBaseGbInfo> inventoryGBTag(boolean isInventoryTid, short readtime) {
+        List<LogBaseGbInfo> list = null;
+        if (type == 0) {
+            MsgBaseInventoryGb msg = new MsgBaseInventoryGb();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            //
+            if (isInventoryTid) {
+                ParamEpcReadTid tid = new ParamEpcReadTid();
+                tid.setMode(EnumG.ParamTidMode_Auto);
+                tid.setLen(6);
+                msg.setReadTid(tid);
+            }
+            client.sendSynMsg(msg);
+
+            logPrint("inventoryGBTag", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(readtime);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    logPrint("inventoryGBTag", stop.getRtCode() + "");
+                    if (filter != null && !filter.isMatching()) {
+//                        return formatExcludeData(2, filter.getFilter().getbData());
+                    }
+                    return formatGBData(2);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+
+        }
+        return list;
+    }
+
+    /****
+     * 盘存国标标签
+     * @param isInventoryTid
+     * @param readtime
+     * @return
+     */
+    //国芯
+    public List<LogBaseGJbInfo> inventoryGJBTag(boolean isInventoryTid, short readtime) {
+        List<LogBaseGJbInfo> list = null;
+        if (type == 0) {
+            MsgBaseInventoryGJb msg = new MsgBaseInventoryGJb();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            //
+            if (isInventoryTid) {
+                ParamEpcReadTid tid = new ParamEpcReadTid();
+                tid.setMode(EnumG.ParamTidMode_Auto);
+                tid.setLen(6);
+                msg.setReadTid(tid);
+            }
+            client.sendSynMsg(msg);
+
+            logPrint("inventoryGBTag", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(readtime);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    logPrint("inventoryGBTag", stop.getRtCode() + "");
+                    if (filter != null && !filter.isMatching()) {
+//                        return formatExcludeData(2, filter.getFilter().getbData());
+                    }
+                    return formatGJBData(2);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+
         }
         return list;
     }
@@ -251,214 +1333,492 @@ public class UHFRManager {
      * 盘存时附加数据读取tid（非FastTid）
      */
     public List<TAGINFO> tagEpcTidInventoryByTimer(short readtime) {
-        List<TAGINFO> list = new ArrayList<>();
-        READER_ERR er;
+        if (type == 0) {
+            MsgBaseInventoryEpc msg = new MsgBaseInventoryEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            msg.setReadTid(new ParamEpcReadTid(0, 6));
+            if (filter != null && filter.isMatching()) {
+                msg.setFilter(filter.getFilter());
+            }
+//            if (fastId.getFastId() != 0) {
+//              msg.setParamFastId(fastId);
+//            }
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseInventoryEpc", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(readtime);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    logPrint("tagInventoryByTimer", stop.getRtCode() + "");
+                    if (filter != null && !filter.isMatching()) {
+                        return formatExcludeData(2, filter.getFilter().getbData());
+                    }
+                    return formatData(2);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
 
-        Reader.EmbededData_ST edst = reader.new EmbededData_ST();
-        edst.accesspwd = null;
-        edst.bank = 2;
-        edst.startaddr = 0;
-        edst.bytecnt = 12;
-        reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
+        } else if (type == 1) {
 
-        int[] tagcnt = new int[1];
-        er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
-        if (er != READER_ERR.MT_OK_ERR) {
-            mErr = er;
+            List<TAGINFO> list = new ArrayList<>();
+            READER_ERR er;
+
+            Reader.EmbededData_ST edst = reader.new EmbededData_ST();
+            edst.accesspwd = null;
+            edst.bank = 2;
+            edst.startaddr = 0;
+            edst.bytecnt = 12;
+            reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
+
+            int[] tagcnt = new int[1];
+            er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
+            if (er != READER_ERR.MT_OK_ERR) {
+                mErr = er;
+                return null;
+            }
+
+            for (int i = 0; i < tagcnt[0]; i++) {
+                TAGINFO tfs = reader.new TAGINFO();
+                er = reader.GetNextTag(tfs);
+                if (er == READER_ERR.MT_OK_ERR) {
+                    list.add(tfs);
+                }
+            }
+            return list;
+
+        } else {
+//锐迪未完成//
             return null;
         }
-
-        for (int i = 0; i < tagcnt[0]; i++) {
-            TAGINFO tfs = reader.new TAGINFO();
-            er = reader.GetNextTag(tfs);
-            if (er == READER_ERR.MT_OK_ERR) {
-                list.add(tfs);
-            }
-        }
-        return list;
     }
 
     public List<TAGINFO> tagEpcOtherInventoryByTimer(short readtime, int bank, int startaddr, int bytecnt, byte[] accesspwd) {
-        List<TAGINFO> list = new ArrayList<>();
-        READER_ERR er;
+        if (type == 0) {
+            MsgBaseInventoryEpc msg = new MsgBaseInventoryEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            switch (bank) {
+                case 0:
+                    msg.setReadReserved(new ParamEpcReadReserved(startaddr, bytecnt));
+                    break;
+                case 1:
+                    msg.setReadEpc(new ParamEpcReadEpc(startaddr + 2, bytecnt));
+                    break;
+                case 2:
+                    msg.setReadTid(new ParamEpcReadTid(EnumG.ParamTidMode_Fixed, bytecnt));
+                    break;
+                case 3:
+                    msg.setReadUserdata(new ParamEpcReadUserdata(startaddr, bytecnt));
+                    break;
+            }
+            msg.setHexPassword(HexUtils.bytes2HexString(accesspwd));
+            if (filter != null && filter.isMatching()) {
+                msg.setFilter(filter.getFilter());
+            }
+            if (fastId.getFastId() != 0) {
+                msg.setParamFastId(fastId);
+            }
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseInventoryEpc", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(readtime);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    logPrint("tagEpcOtherInventory", stop.getRtCode() + "");
+                    if (filter != null && !filter.isMatching()) {
+                        return formatExcludeData(bank, filter.getFilter().getbData());
+                    }
+                    return formatData(bank);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
 
-        //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
-        Reader.EmbededData_ST edst = reader.new EmbededData_ST();
-        edst.bank = bank;
-        edst.startaddr = startaddr;
-        edst.bytecnt = bytecnt;
-        edst.accesspwd = accesspwd;
-        reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
+        } else if (type == 1) {
+            List<TAGINFO> list = new ArrayList<>();
+            READER_ERR er;
 
-        int[] tagcnt = new int[1];
-        er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
-        if (er != READER_ERR.MT_OK_ERR) {
-            mErr = er;
+            //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
+            Reader.EmbededData_ST edst = reader.new EmbededData_ST();
+            edst.bank = bank;
+            edst.startaddr = startaddr;
+            edst.bytecnt = bytecnt;
+            edst.accesspwd = accesspwd;
+            reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
+
+            int[] tagcnt = new int[1];
+            er = reader.TagInventory_Raw(ants, 1, readtime, tagcnt);
+            if (er != READER_ERR.MT_OK_ERR) {
+                mErr = er;
+                return null;
+            }
+
+            for (int i = 0; i < tagcnt[0]; i++) {
+                TAGINFO tfs = reader.new TAGINFO();
+                er = reader.GetNextTag(tfs);
+                if (er == READER_ERR.MT_OK_ERR) {
+                    list.add(tfs);
+                }
+            }
+            return list;
+        } else {
+//锐迪未完成//
             return null;
         }
-
-        for (int i = 0; i < tagcnt[0]; i++) {
-            TAGINFO tfs = reader.new TAGINFO();
-            er = reader.GetNextTag(tfs);
-            if (er == READER_ERR.MT_OK_ERR) {
-                list.add(tfs);
-            }
-        }
-        return list;
     }
 
     public READER_ERR getTagData(int mbank, int startaddr, int len,
-                                 byte[] rdata, byte[] password, short timeout) {
-
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
-        if (er == READER_ERR.MT_OK_ERR) {
-            int trycount = 3;
-            do {
-                er = reader.GetTagData(ant, (char) mbank, startaddr, len,
-                        rdata, password, timeout);
-
-                trycount--;
-                if (trycount < 1) {
+                                 @NonNull byte[] rdata, byte[] password, short timeout) {
+        if (type == 0) {
+            MsgBaseInventoryEpc msg = new MsgBaseInventoryEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            switch (mbank) {
+                case 0:
+                    msg.setReadReserved(new ParamEpcReadReserved(startaddr, len));
                     break;
-                }
-            } while (er != READER_ERR.MT_OK_ERR);
-
-            if (er != READER_ERR.MT_OK_ERR) {
-                logPrint("getTagData, GetTagData result: " + er.toString());
+                case 1:
+                    msg.setReadEpc(new ParamEpcReadEpc(startaddr, len));
+                    break;
+                case 2:
+                    msg.setReadTid(new ParamEpcReadTid(EnumG.ParamTidMode_Fixed, len));
+                    break;
+                case 3:
+                    msg.setReadUserdata(new ParamEpcReadUserdata(startaddr, len));
+                    break;
             }
+            msg.setHexPassword(HexUtils.bytes2HexString(password));
+            if (fastId.getFastId() != 0) {
+                msg.setParamFastId(fastId);
+            }
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseInventoryEpc", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(timeout);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    logPrint("tagEpcOtherInventory", stop.getRtCode() + "");
+                    List<TAGINFO> taginfos = formatData(mbank);
+                    if (taginfos.size() > 0) {
+                        System.arraycopy(taginfos.get(0).EmbededData, 0, rdata, 0, taginfos.get(0).EmbededData.length);
+                        return READER_ERR.MT_OK_ERR;
+                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return READER_ERR.MT_CMD_FAILED_ERR;
+        } else if (type == 1) {
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
+            if (er == READER_ERR.MT_OK_ERR) {
+                int trycount = 3;
+                do {
+                    er = reader.GetTagData(ant, (char) mbank, startaddr, len,
+                            rdata, password, timeout);
+
+                    trycount--;
+                    if (trycount < 1) {
+                        break;
+                    }
+                } while (er != READER_ERR.MT_OK_ERR);
+
+                if (er != READER_ERR.MT_OK_ERR) {
+                    logPrint("getTagData, GetTagData result: " + er.toString());
+                }
+            } else {
+                logPrint("getTagData, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            }
+            return er;
         } else {
-            logPrint("getTagData, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            //锐迪，未完成
+
+            String Status;
+            Status = driver.Read_Data_Tag(Tools.Bytes2HexString(password, password.length),
+                    0, 0, 0, "", mbank, startaddr, len);
+
+            if (Status != null) {
+                rdata = Tools.HexString2Bytes(Status);
+                logPrint("zeng-", "status:" + Status);
+                return READER_ERR.MT_OK_ERR;
+            } else {
+                return READER_ERR.MT_CMD_FAILED_ERR;
+            }
         }
-        return er;
+
     }
 
     public byte[] getTagDataByFilter(int mbank, int startaddr, int len,
                                      byte[] password, short timeout, byte[] fdata, int fbank,
                                      int fstartaddr, boolean matching) {
-        TagFilter_ST g2tf;
-        g2tf = reader.new TagFilter_ST();
-        g2tf.fdata = fdata;
-        g2tf.flen = fdata.length * 8;
-        if (matching) {
-            g2tf.isInvert = 0;
-        } else {
-            g2tf.isInvert = 1;
-        }
-        g2tf.bank = fbank;
-        g2tf.startaddr = fstartaddr * 16;
+        if (type == 0) {
+            MsgBaseInventoryEpc msg = new MsgBaseInventoryEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            switch (mbank) {
+                case 0:
+                    msg.setReadReserved(new ParamEpcReadReserved(startaddr, len));
+                    break;
+                case 1:
+                    msg.setReadEpc(new ParamEpcReadEpc(startaddr, len));
+                    break;
+                case 2:
+                    msg.setReadTid(new ParamEpcReadTid(EnumG.ParamTidMode_Fixed, len));
+                    break;
+                case 3:
+                    msg.setReadUserdata(new ParamEpcReadUserdata(startaddr, len));
+                    break;
+            }
+            msg.setHexPassword(HexUtils.bytes2HexString(password));
 
-        byte[] rdata = new byte[len * 2];
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
-        if (er == READER_ERR.MT_OK_ERR) {
-            er = reader.GetTagData(ant, (char) mbank, startaddr, len,
-                    rdata, password, (short) timeout);
-            if (er == READER_ERR.MT_OK_ERR) {
-                return rdata;
+            if (matching) {
+                ParamEpcFilter filter = new ParamEpcFilter();
+                filter.setArea(fbank);
+                filter.setBitStart(fstartaddr * 16);//word
+                filter.setbData(fdata);
+                filter.setBitLength(fdata.length * 8);
+                msg.setFilter(filter);
+            }
+
+            if (fastId.getFastId() != 0) {
+                msg.setParamFastId(fastId);
+            }
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseInventoryEpc", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(timeout);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    logPrint("tagEpcOtherInventory", stop.getRtCode() + "");
+                    List<TAGINFO> taginfos;
+                    if (matching) {
+                        taginfos = formatData(mbank);
+                    } else {
+                        taginfos = formatExcludeData(mbank, fdata);
+                    }
+                    if (taginfos.size() > 0) {
+                        return taginfos.get(0).EmbededData;
+                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+
+        } else if (type == 1) {
+
+            TagFilter_ST g2tf;
+            g2tf = reader.new TagFilter_ST();
+            g2tf.fdata = fdata;
+            g2tf.flen = fdata.length * 8;
+            if (matching) {
+                g2tf.isInvert = 0;
             } else {
-                logPrint("getTagDataByFilter, GetTagData result: " + er.toString());
+                g2tf.isInvert = 1;
+            }
+            g2tf.bank = fbank;
+            g2tf.startaddr = fstartaddr * 16;
+            byte[] rdata = new byte[len * 2];
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
+            if (er == READER_ERR.MT_OK_ERR) {
+                er = reader.GetTagData(ant, (char) mbank, startaddr, len,
+                        rdata, password, (short) timeout);
+                if (er == READER_ERR.MT_OK_ERR) {
+                    return rdata;
+                } else {
+                    logPrint("getTagDataByFilter, GetTagData result: " + er.toString());
+                    return null;
+                }
+            } else {
+                logPrint("getTagDataByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
                 return null;
             }
         } else {
-            logPrint("getTagDataByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
-            return null;
+            //锐迪，未完成
+            String Status;
+            Status = driver.Read_Data_Tag(Tools.Bytes2HexString(password, password.length),
+                    fbank,
+                    fstartaddr * 16,
+                    Tools.Bytes2HexString(fdata, fdata.length).length(),
+                    Tools.Bytes2HexString(fdata, fdata.length),
+                    mbank, startaddr, len);
+            logPrint("zeng-", "fbnk:" + fbank);
+            logPrint("zeng-", "fstartaddr:" + fstartaddr);
+            logPrint("zeng-", "Tools.Bytes2HexString(fdata, fdata.length).length():" + Tools.Bytes2HexString(fdata, fdata.length).length());
+            logPrint("zeng-", "Tools.Bytes2HexString(fdata, fdata.length):" + Tools.Bytes2HexString(fdata, fdata.length));
+            logPrint("zeng-", "mbank:" + mbank);
+            logPrint("zeng-", "len:" + len);
+            logPrint("zeng-getTagDataByFilter", "status:" + Status);
+            if (Status != null) {
+                return Tools.HexString2Bytes(Status);
+            } else {
+                return null;
+            }
         }
     }
 
     public READER_ERR writeTagData(char mbank, int startaddress, byte[] data,
                                    int datalen, byte[] accesspasswd, short timeout) {
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
-        if (er == READER_ERR.MT_OK_ERR) {
-            int trycount = 3;
-            do {
-                er = reader.WriteTagData(1, mbank, startaddress, data, datalen,
-                        accesspasswd, timeout);
-                trycount--;
-                if (trycount < 1) {
-                    break;
-                }
-            } while (er != READER_ERR.MT_OK_ERR);
+        if (type == 0) {
+            MsgBaseWriteEpc msg = new MsgBaseWriteEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setArea(mbank);
+            msg.setStart(startaddress);
+            String s = HexUtils.bytes2HexString(data);
+            //这里使用len计算pc长度
+            int pcLen = PcUtils.getValueLen(datalen);
+//            if (mbank == 1) {
+            //写入epc地址从1需要计算pc值
+            //              if (startaddress == 1) {
+            //                msg.setHexWriteData(PcUtils.getPc(pcLen) + PcUtils.padRight(s, pcLen * 4, '0'));
+            //          } else {
+            msg.setHexWriteData(PcUtils.padRight(s, pcLen * 4, '0'));
+            //        }
+            //  } else {
+            //    msg.setHexWriteData(PcUtils.padRight(s, pcLen * 4, '0'));
+            //}
+            msg.setHexPassword(HexUtils.bytes2HexString(accesspasswd));
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseWriteEpc", msg.getRtMsg());
+            return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+        } else if (type == 1) {
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
+            if (er == READER_ERR.MT_OK_ERR) {
+                int trycount = 3;
+                do {
+                    er = reader.WriteTagData(1, mbank, startaddress, data, datalen,
+                            accesspasswd, timeout);
+                    trycount--;
+                    if (trycount < 1) {
+                        break;
+                    }
+                } while (er != READER_ERR.MT_OK_ERR);
 
-            if (er != READER_ERR.MT_OK_ERR) {
-                logPrint("writeTagData, WriteTagData result: " + er.toString());
+                if (er != READER_ERR.MT_OK_ERR) {
+                    logPrint("writeTagData, WriteTagData result: " + er.toString());
+                }
+            } else {
+                logPrint("writeTagData, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             }
+            return er;
         } else {
-            logPrint("writeTagData, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            //锐迪，未完成
+            int Status = 0;
+            Status = driver.Write_Data_Tag(Tools.Bytes2HexString(accesspasswd, accesspasswd.length),
+                    0,
+                    0,
+                    0,
+                    "",
+                    mbank,
+                    startaddress,
+                    Tools.Bytes2HexString(data, data.length).length() / 4,
+                    Tools.Bytes2HexString(data, data.length));
+            return Status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
         }
-        return er;
     }
 
     public READER_ERR writeTagDataByFilter(char mbank, int startaddress,
                                            byte[] data, int datalen, byte[] accesspasswd, short timeout,
                                            byte[] fdata, int fbank, int fstartaddr, boolean matching) {
-        TagFilter_ST g2tf;
-        g2tf = reader.new TagFilter_ST();
-        g2tf.fdata = fdata;
-        g2tf.flen = fdata.length * 8;
-        if (matching) {
-            g2tf.isInvert = 0;
-        } else {
-            g2tf.isInvert = 1;
-        }
-        g2tf.bank = fbank;
-        g2tf.startaddr = fstartaddr * 16;
+        if (type == 0) {
+            MsgBaseWriteEpc msg = new MsgBaseWriteEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setArea(mbank);
+            msg.setStart(startaddress);
+            String s = HexUtils.bytes2HexString(data);
+            //这里使用len计算pc长度
+            int pcLen = PcUtils.getValueLen(datalen);
+//            if (mbank == 1) {
+            //写入epc地址从1需要计算pc值
+            //              if (startaddress == 1) {
+            //                msg.setHexWriteData(PcUtils.getPc(pcLen) + PcUtils.padRight(s, pcLen * 4, '0'));
+            //          } else {
+            msg.setHexWriteData(PcUtils.padRight(s, pcLen * 4, '0'));
+            msg.setHexWriteData(PcUtils.padRight(s, pcLen * 4, '0'));
+            msg.setHexPassword(HexUtils.bytes2HexString(accesspasswd));
 
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
-        if (er == READER_ERR.MT_OK_ERR) {
-            int trycount = 3;
-            do {
-                er = reader.WriteTagData(1, mbank, startaddress, data, datalen,
-                        accesspasswd, timeout);
-                trycount--;
-                if (trycount < 1) {
-                    break;
-                }
-            } while (er != READER_ERR.MT_OK_ERR);
-
-            if (er != READER_ERR.MT_OK_ERR) {
-                logPrint("writeTagDataByFilter, WriteTagData result: " + er.toString());
+            if (matching) {
+                ParamEpcFilter filter = new ParamEpcFilter();
+                filter.setArea(fbank);
+                filter.setBitStart(fstartaddr * 16);//word
+                filter.setbData(fdata);
+                filter.setBitLength(fdata.length * 8);
+                msg.setFilter(filter);
             }
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseWriteEpc", msg.getRtMsg());
+            return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+        } else if (type == 1) {
+
+            TagFilter_ST g2tf;
+            g2tf = reader.new TagFilter_ST();
+            g2tf.fdata = fdata;
+            g2tf.flen = fdata.length * 8;
+            if (matching) {
+                g2tf.isInvert = 0;
+            } else {
+                g2tf.isInvert = 1;
+            }
+            g2tf.bank = fbank;
+            g2tf.startaddr = fstartaddr * 16;
+
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
+            if (er == READER_ERR.MT_OK_ERR) {
+                int trycount = 3;
+                do {
+                    er = reader.WriteTagData(1, mbank, startaddress, data, datalen,
+                            accesspasswd, timeout);
+                    trycount--;
+                    if (trycount < 1) {
+                        break;
+                    }
+                } while (er != READER_ERR.MT_OK_ERR);
+
+                if (er != READER_ERR.MT_OK_ERR) {
+                    logPrint("writeTagDataByFilter, WriteTagData result: " + er.toString());
+                }
+            } else {
+                logPrint("writeTagDataByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            }
+            return er;
         } else {
-            logPrint("writeTagDataByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            //锐迪，未完成
+            int Status = 0;
+            Status = driver.Write_Data_Tag(Tools.Bytes2HexString(accesspasswd, accesspasswd.length),
+                    fbank,
+                    fstartaddr * 16,
+                    Tools.Bytes2HexString(fdata, fdata.length).length() / 4,
+                    Tools.Bytes2HexString(fdata, fdata.length),
+                    mbank,
+                    startaddress,
+                    Tools.Bytes2HexString(data, data.length).length() / 4,
+                    Tools.Bytes2HexString(data, data.length));
+            return Status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
         }
-        return er;
     }
 
     public READER_ERR writeTagEPC(byte[] data, byte[] accesspwd, short timeout) {
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
-        int trycount = 3;
-        do {
-            er = reader.WriteTagEpcEx(ant, data, data.length, accesspwd,
-                    timeout);
-            if (trycount < 1) {
-                break;
-            }
-            trycount--;
-        } while (er != READER_ERR.MT_OK_ERR);
-
-        if (er != READER_ERR.MT_OK_ERR) {
-            logPrint("writeTagEPC, WriteTagEpcEx result: " + er.toString());
-        }
-        return er;
-    }
-
-    public READER_ERR writeTagEPCByFilter(byte[] data, byte[] accesspwd,
-                                          short timeout, byte[] fdata, int fbank, int fstartaddr,
-                                          boolean matching) {
-        TagFilter_ST g2tf;
-        g2tf = reader.new TagFilter_ST();
-        g2tf.fdata = fdata;
-        g2tf.flen = fdata.length * 8;
-        if (matching) {
-            g2tf.isInvert = 0;
-        } else {
-            g2tf.isInvert = 1;
-        }
-
-        g2tf.bank = fbank;
-        g2tf.startaddr = fstartaddr * 16;
-
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
-        if (er == READER_ERR.MT_OK_ERR) {
+        if (type == 0) {
+            MsgBaseWriteEpc msg = new MsgBaseWriteEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setArea(EnumG.WriteArea_Epc);
+            msg.setStart(1);
+            String s = HexUtils.bytes2HexString(data);
+            int pcLen = PcUtils.getValueLen(s);
+            msg.setHexWriteData(PcUtils.getPc(pcLen) + PcUtils.padRight(s, pcLen * 4, '0'));
+            msg.setHexPassword(HexUtils.bytes2HexString(accesspwd));
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseWriteEpc", msg.getRtMsg());
+            return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+        } else if (type == 1) {
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
             int trycount = 3;
             do {
                 er = reader.WriteTagEpcEx(ant, data, data.length, accesspwd,
@@ -466,182 +1826,744 @@ public class UHFRManager {
                 if (trycount < 1) {
                     break;
                 }
-                trycount = trycount - 1;
+                trycount--;
             } while (er != READER_ERR.MT_OK_ERR);
-            if (er != READER_ERR.MT_OK_ERR) {
-                logPrint("writeTagEPCByFilter, WriteTagEpcEx result: " + er.toString());
-            }
-        } else {
-            logPrint("writeTagEPCByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
-        }
-        return er;
 
+            if (er != READER_ERR.MT_OK_ERR) {
+                logPrint("writeTagEPC, WriteTagEpcEx result: " + er.toString());
+            }
+            return er;
+        } else {
+            //锐迪未完成//
+
+            return READER_ERR.MT_CMD_FAILED_ERR;
+
+
+        }
+    }
+
+    public READER_ERR writeTagEPCByFilter(byte[] data, byte[] accesspwd,
+                                          short timeout, byte[] fdata, int fbank, int fstartaddr,
+                                          boolean matching) {
+        if (type == 0) {
+            MsgBaseWriteEpc msg = new MsgBaseWriteEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setArea(EnumG.WriteArea_Epc);
+            msg.setStart(1);
+            String s = HexUtils.bytes2HexString(data);
+            int pcLen = PcUtils.getValueLen(s);
+            msg.setHexWriteData(PcUtils.getPc(pcLen) + PcUtils.padRight(s, pcLen * 4, '0'));
+            msg.setHexPassword(HexUtils.bytes2HexString(accesspwd));
+            if (matching) {
+                ParamEpcFilter filter = new ParamEpcFilter();
+                filter.setArea(fbank);
+                filter.setBitStart(fstartaddr * 16);//word
+                filter.setbData(fdata);
+                filter.setBitLength(fdata.length * 8);
+                msg.setFilter(filter);
+            }
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseWriteEpc", msg.getRtMsg());
+            return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+        } else if (type == 1) {
+            TagFilter_ST g2tf;
+            g2tf = reader.new TagFilter_ST();
+            g2tf.fdata = fdata;
+            g2tf.flen = fdata.length * 8;
+            if (matching) {
+                g2tf.isInvert = 0;
+            } else {
+                g2tf.isInvert = 1;
+            }
+
+            g2tf.bank = fbank;
+            g2tf.startaddr = fstartaddr * 16;
+
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
+            if (er == READER_ERR.MT_OK_ERR) {
+                int trycount = 3;
+                do {
+                    er = reader.WriteTagEpcEx(ant, data, data.length, accesspwd,
+                            timeout);
+                    if (trycount < 1) {
+                        break;
+                    }
+                    trycount = trycount - 1;
+                } while (er != READER_ERR.MT_OK_ERR);
+                if (er != READER_ERR.MT_OK_ERR) {
+                    logPrint("writeTagEPCByFilter, WriteTagEpcEx result: " + er.toString());
+                }
+            } else {
+                logPrint("writeTagEPCByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            }
+            return er;
+
+        } else {
+            //锐迪未完成//
+
+            return READER_ERR.MT_CMD_FAILED_ERR;
+        }
     }
 
     public READER_ERR lockTag(Lock_Obj lockobject, Lock_Type locktype,
                               byte[] accesspasswd, short timeout) {
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
-        if (er == READER_ERR.MT_OK_ERR) {
-            er = reader.LockTag(ant, (byte) lockobject.value(),
-                    (short) locktype.value(), accesspasswd, timeout);
+        if (type == 0) {
+            MsgBaseWriteEpc writePas = new MsgBaseWriteEpc();
+            if (locktype.value() != 0) {//非0为锁定时需要写入密码
+                writePas.setAntennaEnable(EnumG.AntennaNo_1);
+                writePas.setArea(0);
+                writePas.setStart(2);
+                writePas.setHexWriteData(HexUtils.bytes2HexString(accesspasswd));
+                client.sendSynMsg(writePas);
+                logPrint("MsgBaseWritePas", writePas.getRtMsg());
+            } else {
+                writePas.setRtCode((byte) 0);//为0时表示解锁，不需要再次执行写入密码逻辑
+            }
+            if (writePas.getRtCode() == 0) {
+                MsgBaseLockEpc msg = new MsgBaseLockEpc();
+                msg.setAntennaEnable(EnumG.AntennaNo_1);
+                msg.setArea((int) (Math.log(lockobject.value()) / Math.log(2)));//传入值需要对数计算转化为协议值0，1，2，3，4
+                switch (locktype.value()) {
+                    case 0:
+                        msg.setMode(0);//解锁
+                        break;
+                    case 512:
+                    case 128:
+                    case 32:
+                    case 8:
+                    case 2:
+                        msg.setMode(1);//锁定
+                        break;
+                    case 768:
+                    case 192:
+                    case 48:
+                    case 12:
+                    case 3:
+                        msg.setMode(3);//永久锁定
+                        break;
+                }
+                msg.setHexPassword(HexUtils.bytes2HexString(accesspasswd));
+                client.sendSynMsg(msg);
+                logPrint("MsgBaseLockEpc", msg.getRtMsg());
+                return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+            }
+            return READER_ERR.MT_CMD_FAILED_ERR;
+
+        } else if (type == 1) {
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
+            if (er == READER_ERR.MT_OK_ERR) {
+                er = reader.LockTag(ant, (byte) lockobject.value(),
+                        (short) locktype.value(), accesspasswd, timeout);
+            }
+            if (er != READER_ERR.MT_OK_ERR) {
+                logPrint("lockTag, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            }
+            return er;
+        } else {
+            //锐迪，未完成
+            int Status = 0;
+            Status = driver.Lock_Tag_Data(Tools.Bytes2HexString(accesspasswd, accesspasswd.length), 0, 0, 0, "", lockobject.value(), locktype.value());
+            return Status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+
         }
-        if (er != READER_ERR.MT_OK_ERR) {
-            logPrint("lockTag, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
-        }
-        return er;
     }
 
     public READER_ERR lockTagByFilter(Lock_Obj lockobject, Lock_Type locktype,
                                       byte[] accesspasswd, short timeout, byte[] fdata, int fbank,
                                       int fstartaddr, boolean matching) {
-        TagFilter_ST g2tf;
-        g2tf = reader.new TagFilter_ST();
-        g2tf.fdata = fdata;
-        g2tf.flen = fdata.length * 8;
-        if (matching) {
-            g2tf.isInvert = 0;
-        } else {
-            g2tf.isInvert = 1;
-        }
-        g2tf.bank = fbank;
-        g2tf.startaddr = fstartaddr * 16;
+        if (type == 0) {
+            MsgBaseWriteEpc writePas = new MsgBaseWriteEpc();
+            if (locktype.value() != 0) {//非0为锁定时需要写入密码
+                writePas.setAntennaEnable(EnumG.AntennaNo_1);
+                writePas.setArea(0);
+                writePas.setStart(2);
+                writePas.setHexWriteData(HexUtils.bytes2HexString(accesspasswd));
+                if (matching) {
+                    ParamEpcFilter filter = new ParamEpcFilter();
+                    filter.setArea(fbank);
+                    filter.setBitStart(fstartaddr * 16);//word
+                    filter.setbData(fdata);
+                    filter.setBitLength(fdata.length * 8);
+                    writePas.setFilter(filter);
+                }
+                client.sendSynMsg(writePas);
+                logPrint("MsgBaseWritePas", writePas.getRtMsg());
+            } else {
+                writePas.setRtCode((byte) 0);//为0时表示解锁，不需要再次执行写入密码逻辑
+            }
+            if (writePas.getRtCode() == 0) {
+                MsgBaseLockEpc msg = new MsgBaseLockEpc();
+                msg.setAntennaEnable(EnumG.AntennaNo_1);
+                msg.setArea((int) (Math.log(lockobject.value()) / Math.log(2)));//传入值需要对数计算转化为协议值0，1，2，3，4
+                switch (locktype.value()) {
+                    case 0:
+                        msg.setMode(0);//解锁
+                        break;
+                    case 512:
+                    case 128:
+                    case 32:
+                    case 8:
+                    case 2:
+                        msg.setMode(1);//锁定
+                        break;
+                    case 768:
+                    case 192:
+                    case 48:
+                    case 12:
+                    case 3:
+                        msg.setMode(3);//永久锁定
+                        break;
+                }
+                msg.setHexPassword(HexUtils.bytes2HexString(accesspasswd));
+                if (matching) {
+                    ParamEpcFilter filter = new ParamEpcFilter();
+                    filter.setArea(fbank);
+                    filter.setBitStart(fstartaddr * 16);//word
+                    filter.setbData(fdata);
+                    filter.setBitLength(fdata.length * 8);
+                    msg.setFilter(filter);
+                }
+                client.sendSynMsg(msg);
+                logPrint("MsgBaseLockEpc", msg.getRtMsg());
+                return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+            }
+            return READER_ERR.MT_CMD_FAILED_ERR;
 
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
-        if (er == READER_ERR.MT_OK_ERR) {
-            er = reader.LockTag(ant, (byte) lockobject.value(),
-                    (short) locktype.value(), accesspasswd, timeout);
+        } else if (type == 1) {
+            TagFilter_ST g2tf;
+            g2tf = reader.new TagFilter_ST();
+            g2tf.fdata = fdata;
+            g2tf.flen = fdata.length * 8;
+            if (matching) {
+                g2tf.isInvert = 0;
+            } else {
+                g2tf.isInvert = 1;
+            }
+            g2tf.bank = fbank;
+            g2tf.startaddr = fstartaddr * 16;
+
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
+            if (er == READER_ERR.MT_OK_ERR) {
+                er = reader.LockTag(ant, (byte) lockobject.value(),
+                        (short) locktype.value(), accesspasswd, timeout);
+            }
+            if (er != READER_ERR.MT_OK_ERR) {
+                logPrint("lockTagByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            }
+            return er;
+        } else {
+            //锐迪，未完成
+            int Status = 0;
+            Status = driver.Lock_Tag_Data(Tools.Bytes2HexString(accesspasswd, accesspasswd.length), fbank, fstartaddr, (Tools.Bytes2HexString(fdata, fdata.length).length() / 4), Tools.Bytes2HexString(fdata, fdata.length), lockobject.value(), locktype.value());
+            return Status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+
+
         }
-        if (er != READER_ERR.MT_OK_ERR) {
-            logPrint("lockTagByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
-        }
-        return er;
     }
 
     public READER_ERR killTag(byte[] killpasswd, short timeout) {
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
-        if (er == READER_ERR.MT_OK_ERR) {
-            er = reader.KillTag(ant, killpasswd, timeout);
+        if (type == 0) {
+            MsgBaseWriteEpc writePas = new MsgBaseWriteEpc();
+            writePas.setAntennaEnable(EnumG.AntennaNo_1);
+            writePas.setArea(0);
+            writePas.setStart(0);
+            writePas.setHexWriteData(HexUtils.bytes2HexString(killpasswd));
+            client.sendSynMsg(writePas);
+            logPrint("MsgBaseWritePas", writePas.getRtMsg());
+            if (writePas.getRtCode() == 0) {
+                MsgBaseDestroyEpc msg = new MsgBaseDestroyEpc();
+                msg.setAntennaEnable(EnumG.AntennaNo_1);
+                msg.setHexPassword(HexUtils.bytes2HexString(killpasswd));
+                client.sendSynMsg(msg);
+                logPrint("MsgBaseDestroyEpc", msg.getRtMsg());
+                return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+            }
+            return READER_ERR.MT_CMD_FAILED_ERR;
+
+        } else if (type == 1) {
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
+            if (er == READER_ERR.MT_OK_ERR) {
+                er = reader.KillTag(ant, killpasswd, timeout);
+            }
+            if (er != READER_ERR.MT_OK_ERR) {
+                logPrint("killTag, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            }
+            return er;
+        } else {
+            //锐迪，未完成
+            int status = driver.Kill_Tag(Tools.Bytes2HexString(killpasswd, killpasswd.length), 0, 0, 0, "");
+
+            return status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+
         }
-        if (er != READER_ERR.MT_OK_ERR) {
-            logPrint("killTag, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
-        }
-        return er;
     }
 
     public READER_ERR killTagByFilter(byte[] killpasswd, short timeout,
                                       byte[] fdata, int fbank, int fstartaddr, boolean matching) {
-        TagFilter_ST g2tf;
-        g2tf = reader.new TagFilter_ST();
-        g2tf.fdata = fdata;
-        g2tf.flen = fdata.length * 8;
-        if (matching) {
-            g2tf.isInvert = 0;
-        } else {
-            g2tf.isInvert = 1;
-        }
-        g2tf.bank = fbank;
-        g2tf.startaddr = fstartaddr * 16;
+        if (type == 0) {
+            MsgBaseWriteEpc writePas = new MsgBaseWriteEpc();
+            writePas.setAntennaEnable(EnumG.AntennaNo_1);
+            writePas.setArea(0);
+            writePas.setStart(0);
+            writePas.setHexWriteData(HexUtils.bytes2HexString(killpasswd));
+            if (matching) {
+                ParamEpcFilter filter = new ParamEpcFilter();
+                filter.setArea(fbank);
+                filter.setBitStart(fstartaddr * 16);//word
+                filter.setbData(fdata);
+                filter.setBitLength(fdata.length * 8);
+                writePas.setFilter(filter);
+            }
+            client.sendSynMsg(writePas);
+            logPrint("MsgBaseWritePas", writePas.getRtMsg());
+            if (writePas.getRtCode() == 0) {
+                MsgBaseDestroyEpc msg = new MsgBaseDestroyEpc();
+                msg.setAntennaEnable(EnumG.AntennaNo_1);
+                msg.setHexPassword(HexUtils.bytes2HexString(killpasswd));
+                if (matching) {
+                    ParamEpcFilter filter = new ParamEpcFilter();
+                    filter.setArea(fbank);
+                    filter.setBitStart(fstartaddr * 16);//word
+                    filter.setbData(fdata);
+                    filter.setBitLength(fdata.length * 8);
+                    msg.setFilter(filter);
+                }
+                client.sendSynMsg(msg);
+                logPrint("MsgBaseDestroyEpc", msg.getRtMsg());
+                return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+            }
+            return READER_ERR.MT_CMD_FAILED_ERR;
+        } else if (type == 1) {
+            TagFilter_ST g2tf;
+            g2tf = reader.new TagFilter_ST();
+            g2tf.fdata = fdata;
+            g2tf.flen = fdata.length * 8;
+            if (matching) {
+                g2tf.isInvert = 0;
+            } else {
+                g2tf.isInvert = 1;
+            }
+            g2tf.bank = fbank;
+            g2tf.startaddr = fstartaddr * 16;
 
-        READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
-        if (er == READER_ERR.MT_OK_ERR) {
-            er = reader.KillTag(ant, killpasswd, timeout);
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, g2tf);
+            if (er == READER_ERR.MT_OK_ERR) {
+                er = reader.KillTag(ant, killpasswd, timeout);
+            }
+            if (er != READER_ERR.MT_OK_ERR) {
+                logPrint("killTagByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+            }
+            return er;
+        } else {
+            //锐迪，未完成
+            String sData = Tools.Bytes2HexString(fdata, fdata.length);
+            int status = driver.Kill_Tag(Tools.Bytes2HexString(killpasswd, killpasswd.length), fbank, fstartaddr, (sData.length() / 4), sData);
+
+            return status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+
+
         }
-        if (er != READER_ERR.MT_OK_ERR) {
-            logPrint("killTagByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
-        }
-        return er;
     }
 
     public READER_ERR setRegion(Region_Conf region) {
-        return reader.ParamSet(Mtr_Param.MTR_PARAM_FREQUENCY_REGION, region);
+        int[] a  =getPower();
+        if (type == 0) {
+                logPrint("zeng-",region.value()+"");
+                MsgBaseSetFreqRange msg = new MsgBaseSetFreqRange();
+                switch (region.value()) {
+                    case 6:
+                        msg.setFreqRangeIndex(0);//GB_920-925
+                        break;
+                    case 1:
+                        msg.setFreqRangeIndex(3);//fcc_902_928
+                        break;
+                    case 8:
+                        msg.setFreqRangeIndex(4);//ETSI_866_868
+                        break;
+                    default:
+                        msg.setFreqRangeIndex(99);//其它值给个不存在的值，默认失败
+                        break;
+                }
+                client.sendSynMsg(msg);
+                logPrint("MsgBaseSetFreqRange", msg.getRtMsg());
+                if(msg.getRtCode()==0){
+                   return  setPower(a[0],a[1]);
+                }else {
+                    return READER_ERR.MT_CMD_FAILED_ERR;
+                }
+        } else if (type == 1) {
+            return reader.ParamSet(Mtr_Param.MTR_PARAM_FREQUENCY_REGION, region);
+        } else {
+            //锐迪，未完成
+            int value = 0;
+            logPrint("zeng-", "value:" + region.value());
+            switch (region.value()) {
+                case 6:
+                    value = 0x01;//GB_920-925
+                    break;
+                case 10:
+                    value = 0x02;//GB_800
+                    break;
+                case 1:
+                    value = 0x08;//fcc_902_928
+                    break;
+                case 8:
+                    value = 0x04;//eu_902_928
+                    break;
+                default:
+                    value = 0;//fcc_902_928
+                    break;
+            }
+            if (value == 0) {
+                return READER_ERR.MT_CMD_FAILED_ERR;
+            } else {
+                int status = driver.SetRegion(value);
+                if (-1000 == status || -1020 == status || 0 == status) {
+                    return READER_ERR.MT_CMD_FAILED_ERR;
+                } else {
+                    return setPower(rPower, wPower);
+                }
+            }
+        }
     }
 
     public Region_Conf getRegion() {
-        Region_Conf[] rcf2 = new Region_Conf[1];
-        READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_FREQUENCY_REGION,
-                rcf2);
-        if (er == READER_ERR.MT_OK_ERR) {
-            return rcf2[0];
-        }
-        logPrint("getRegion, ParamGet MTR_PARAM_FREQUENCY_REGION result: " + er.toString());
-        return null;
+        if (type == 0) {
+            MsgBaseGetFreqRange msg = new MsgBaseGetFreqRange();
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseGetFreqRange", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                switch (msg.getFreqRangeIndex()) {
+                    case 0://GB_920-925
+                        return Region_Conf.valueOf(6);
+                    case 3://fcc_902_928
+                        return Region_Conf.valueOf(1);
+                    case 4://ETSI_866_868
+                        return Region_Conf.valueOf(8);
+                }
+            }
+            return null;
 
-    }
-
-    public int[] getFrequencyPoints() {
-        HoptableData_ST hdst2 = reader.new HoptableData_ST();
-        READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_FREQUENCY_HOPTABLE,
-                hdst2);
-        int[] tablefre;
-        if (er == READER_ERR.MT_OK_ERR) {
-            tablefre = sort(hdst2.htb, hdst2.lenhtb);
-            return tablefre;
-        }
-        logPrint("getFrequencyPoints, ParamGet MTR_PARAM_FREQUENCY_HOPTABLE result: " + er.toString());
-        return null;
-    }
-
-    public READER_ERR setFrequencyPoints(int[] frequencyPoints) {
-        HoptableData_ST hdst = reader.new HoptableData_ST();
-        hdst.lenhtb = frequencyPoints.length;
-        hdst.htb = frequencyPoints;
-        return reader.ParamSet(Mtr_Param.MTR_PARAM_FREQUENCY_HOPTABLE, hdst);
-    }
-
-    public READER_ERR setPower(int readPower, int writePower) {
-        AntPowerConf antPowerConf = reader.new AntPowerConf();
-        antPowerConf.antcnt = ant;
-        AntPower antPower = reader.new AntPower();
-        antPower.antid = 1;
-        antPower.readPower = (short) ((short) readPower * 100);
-        antPower.writePower = (short) ((short) writePower * 100);
-        antPowerConf.Powers[0] = antPower;
-        return reader.ParamSet(Mtr_Param.MTR_PARAM_RF_ANTPOWER, antPowerConf);
-    }
-
-    public int[] getPower() {
-        int[] powers = new int[2];
-        AntPowerConf apcf2 = reader.new AntPowerConf();
-        READER_ERR er = reader.ParamGet(
-                Mtr_Param.MTR_PARAM_RF_ANTPOWER, apcf2);
-        if (er == READER_ERR.MT_OK_ERR) {
-            powers[0] = apcf2.Powers[0].readPower / 100;
-            powers[1] = apcf2.Powers[0].writePower / 100;
-            return powers;
+        } else if (type == 1) {
+            Region_Conf[] rcf2 = new Region_Conf[1];
+            READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_FREQUENCY_REGION,
+                    rcf2);
+            if (er == READER_ERR.MT_OK_ERR) {
+                return rcf2[0];
+            }
+            logPrint("getRegion, ParamGet MTR_PARAM_FREQUENCY_REGION result: " + er.toString());
+            return null;
         } else {
-            logPrint("getPower, ParamGet MTR_PARAM_RF_ANTPOWER result: " + er.toString());
+            //锐迪，未完成
+            String sum;
+            sum = driver.getRegion();
+            if (sum.equals("-1000") || sum.equals("-1020")) {
+                return null;
+            } else {
+                String text1 = sum.substring(2, 4);
+                int i = Integer.parseInt(text1, 16);
+                switch (i) {
+                    case 0x01:
+                        return Region_Conf.valueOf(6);
+                    case 0x02:
+                        return Region_Conf.valueOf(10);
+                    case 0x04:
+//                        spinner_region.setSelection(2);
+                        return Region_Conf.valueOf(8);
+
+                    case 0x08:
+                        return Region_Conf.valueOf(1);
+                    default:
+                        return null;
+                }
+            }
+        }
+    }
+
+
+    //获取频点，已完成，待测试
+    public int[] getFrequencyPoints() {
+        if (type == 0) {
+            MsgBaseGetFrequency msg = new MsgBaseGetFrequency();
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseGetFrequency", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                int[] temp = new int[msg.getListFreqCursor().size()];
+                for (int i = 0; i < msg.getListFreqCursor().size(); i++) {
+                    temp[i] = msg.getListFreqCursor().get(i);
+                }
+                return temp;
+            }
+            return null;
+        } else if (type == 1) {
+            HoptableData_ST hdst2 = reader.new HoptableData_ST();
+            READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_FREQUENCY_HOPTABLE,
+                    hdst2);
+            int[] tablefre;
+            if (er == READER_ERR.MT_OK_ERR) {
+                tablefre = sort(hdst2.htb, hdst2.lenhtb);
+                return tablefre;
+            }
+            logPrint("getFrequencyPoints, ParamGet MTR_PARAM_FREQUENCY_HOPTABLE result: " + er.toString());
+            return null;
+        } else {
+            //锐迪，未完成
+            String sum;
+            sum = driver.GetFreqTable();
+            if (sum.equals("-1000") || sum.equals("-1020")) {
+                return null;
+            } else {
+                int index = sum.indexOf("}");
+                String tmp = sum.substring(index + 1);
+                String[] tmps = tmp.split("\\,");
+                int number[] = new int[tmps.length];
+                for (int i = 0; i < tmps.length; i++) {
+                    number[i] = Integer.parseInt(tmps[i]); // error here
+
+                }
+                return number;
+            }
+
+        }
+    }
+
+    //设置频点，已完成，待测试
+    public READER_ERR setFrequencyPoints(int[] frequencyPoints) {
+        if (type == 0) {
+            MsgBaseSetFrequency msg = new MsgBaseSetFrequency();
+            msg.setAutomatically(false);
+            List<Integer> temp = new ArrayList<>();
+            for (int i = 0; i < frequencyPoints.length; i++) {
+                temp.add(frequencyPoints[i]);
+            }
+            msg.setListFreqCursor(temp);
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseSetFrequency", msg.getRtMsg());
+            return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+
+        } else if (type == 1) {
+            HoptableData_ST hdst = reader.new HoptableData_ST();
+            hdst.lenhtb = frequencyPoints.length;
+            hdst.htb = frequencyPoints;
+            return reader.ParamSet(Mtr_Param.MTR_PARAM_FREQUENCY_HOPTABLE, hdst);
+        } else {
+            //锐迪，未完成
+            int result = 0, num = 0;
+            result = driver.SetFreqTable(1, frequencyPoints.length, frequencyPoints);
+            if (result == -1000 || result == -1020) {
+                return READER_ERR.MT_CMD_FAILED_ERR;
+            } else {
+                return READER_ERR.MT_OK_ERR;
+
+            }
+        }
+    }
+
+
+    //设置功率
+    public READER_ERR setPower(int readPower, int writePower) {
+        rPower = readPower;
+        wPower = writePower;
+        if (type == 0) {
+            MsgBaseGetPower getPower = new MsgBaseGetPower();
+            client.sendSynMsg(getPower);
+            if (getPower.getRtCode() == 0) {
+                if (getPower.getDicPower().get(1) == readPower
+//                        || getPower.getDicPower().get(1) == writePower
+                ) {
+                    return READER_ERR.MT_OK_ERR;
+                }
+                MsgBaseSetPower msg = new MsgBaseSetPower();
+                Hashtable<Integer, Integer> hashtable = new Hashtable<>();
+                hashtable.put(1, readPower);
+                msg.setDicPower(hashtable);
+                client.sendSynMsg(msg);
+                logPrint("MsgBaseSetPower", msg.getRtMsg());
+                return msg.getRtCode() == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
+            }
+            return READER_ERR.MT_CMD_FAILED_ERR;
+        } else if (type == 1) {
+            AntPowerConf antPowerConf = reader.new AntPowerConf();
+            antPowerConf.antcnt = ant;
+            AntPower antPower = reader.new AntPower();
+            antPower.antid = 1;
+            antPower.readPower = (short) ((short) readPower * 100);
+            antPower.writePower = (short) ((short) writePower * 100);
+            antPowerConf.Powers[0] = antPower;
+            return reader.ParamSet(Mtr_Param.MTR_PARAM_RF_ANTPOWER, antPowerConf);
+        } else {
+            //锐迪，未完成
+            logPrint("zeng-", "r:" + readPower + ";w:" + writePower);
+            int status = driver.SetTxPower(readPower, writePower, 0, 0);
+            logPrint("zeng-", "setpowe:" + status);
+
+            if (-1000 == status || -1020 == status || 0 == status) {
+                return READER_ERR.MT_CMD_FAILED_ERR;
+            } else {
+                return READER_ERR.MT_OK_ERR;
+            }
+
+        }
+    }
+
+    //获取功率
+    public int[] getPower() {
+        if (type == 0) {
+            MsgBaseGetPower msg = new MsgBaseGetPower();
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseGetPower", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                Integer power = msg.getDicPower().get(1);
+                return new int[]{power, power};
+            }
+            return null;
+        } else if (type == 1) {
+            int[] powers = new int[2];
+            AntPowerConf apcf2 = reader.new AntPowerConf();
+            READER_ERR er = reader.ParamGet(
+                    Mtr_Param.MTR_PARAM_RF_ANTPOWER, apcf2);
+            if (er == READER_ERR.MT_OK_ERR) {
+                powers[0] = apcf2.Powers[0].readPower / 100;
+                powers[1] = apcf2.Powers[0].writePower / 100;
+                return powers;
+            } else {
+                logPrint("getPower, ParamGet MTR_PARAM_RF_ANTPOWER result: " + er.toString());
+                return null;
+            }
+        } else {
+            //锐迪，未完成
+            if (driver != null) {
+                String text = driver.GetTxPower();
+                logPrint("zeng-", "text:" + text);
+                if (text.equals("-1020") || text.equals("-1000")) {
+                    return null;
+                }
+
+
+                String[] PowArrary = text.split(",");
+                String text1 = PowArrary[0].substring(6);
+                String text2 = PowArrary[1].substring(0, PowArrary.length);
+                int ri = Integer.parseInt(text1, 10);
+                int wi = Integer.parseInt(text2, 10);
+
+                int[] powers = new int[2];
+                powers[0] = ri;
+                powers[1] = wi;
+                return powers;
+            } else {
+                return null;
+            }
+
+        }
+    }
+
+    //悦和标签
+    public List<com.handheld.uhfr.Reader.TEMPTAGINFO> getYueheTagTemperature(byte[] accesspassword) {
+        List<com.handheld.uhfr.Reader.TEMPTAGINFO> taginfos = null;
+        if (type == 0) {
+            NumberFormat nf = NumberFormat.getNumberInstance();
+            MsgBaseInventoryEpc msg = new MsgBaseInventoryEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            msg.setCtesius(2);
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseInventoryEpc", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(50);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    taginfos = formatData();
+//                    if (taginfos.size() > 0) {
+//                        //返回小数点后2位
+////                        return (taginfos.get(0).Temperature);
+//                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return taginfos;
+        } else if (type == 1) {
+//            double temp = -255 ;
+//            READER_ERR er = READER_ERR.MT_OK_ERR;
+//            R2000_calibration.META_DATA rmeta=new R2000_calibration().new META_DATA();
+//            rmeta.IsReadCnt=true;
+//            rmeta.IsRSSI=true;
+//            rmeta.IsAntennaID=true;
+//            rmeta.IsFrequency=true;
+//            rmeta.IsTimestamp=true;
+//            rmeta.IsRFU=true;
+//            rmeta.IsPro=true;
+//            rmeta.IsEmdData=true;
+//            R2000_calibration.Tagtemperture_DATA tagtemp=new R2000_calibration().new Tagtemperture_DATA();
+//            // ant = 1, bank = 3, adrhex = 127, blkcnt = 1, readtimeout = 1000, selwait = 0, readwait = 100
+//            int ant = 1 ;
+//            int b = 3 ;
+//            char memback = (char) b;
+//            int addr = 127 ;
+//            int wordCnt = 1 ;
+//            int timeout =1000  ;
+//            int timeselwait = 0 ;
+//            int timereadwait = 100 ;
+//            reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
+//            er = reader.ReadTagTemperature(ant,
+//                    memback, addr, wordCnt,
+//                    timeout,  timeselwait, timereadwait, rmeta.getMetaflag(), accesspassword, tagtemp);
+//            if(er==READER_ERR.MT_OK_ERR){
+//                String tempet = "";
+//                if ((tagtemp.Data()[0] & 0x80) == 0)
+//                {
+//                    tempet=(tagtemp.Data()[0]&0xff)-30 + "." + (tagtemp.Data()[1]&0xff) * 100 / 255;
+//                }
+//                else
+//                {
+//                    tagtemp.Data()[0] = (byte)(~tagtemp.Data()[0]);
+//                    tagtemp.Data()[1] = (byte)(~tagtemp.Data()[1] + 1);
+//                    tempet = "-"+((tagtemp.Data()[0]&0xff)-30) + "." + (tagtemp.Data()[1]&0xff) * 100 / 255;
+//                    temp = Integer.valueOf(tempet);
+//                }
+//
+//            }
+            return null;
+        } else {
+            //锐迪，未完成
             return null;
         }
     }
 
-    /**
-     * get temperature
-     */
-    public int getTemperature() {
-        int[] val = new int[1];
-        READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_RF_TEMPERATURE, val);
-        if (er == READER_ERR.MT_OK_ERR) {
-            return val[0];
+    //
+    public List<com.handheld.uhfr.Reader.TEMPTAGINFO> getYilianTagTemperature() {
+        List<com.handheld.uhfr.Reader.TEMPTAGINFO> taginfos = null;
+        if (type == 0) {
+            MsgBaseInventoryEpc msg = new MsgBaseInventoryEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            ParamEpcReadUserdata userParam = new ParamEpcReadUserdata();
+            userParam.setStart(127);
+            userParam.setLen(1);
+            msg.setReadUserdata(userParam);
+            client.sendSynMsg(msg);
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(50);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    taginfos = formatData();
+//                    if (taginfos.size() > 0) {
+//                        //返回小数点后2位
+//                        return (taginfos.get(0).Temperature);
+//                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+//            return taginfos ;
+        } else if (type == 1) {
+
         } else {
-            logPrint("getTemperature, ParamGet MTR_PARAM_RF_TEMPERATURE result: " + er.toString());
-            return -1;
-        }
-    }
 
-    @Deprecated
-    public READER_ERR setFastMode() {
-        READER_ERR er = setPower((short) 30, (short) 30);
-        if (er == READER_ERR.MT_OK_ERR) {
-            er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION,
-                    new int[]{1});
         }
-        return er;
-    }
-
-    @Deprecated
-    public READER_ERR setCancelFastMode() {
-        return reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION,
-                new int[]{0});
+        return taginfos;
     }
 
     private int[] sort(int[] array, int len) {
@@ -659,33 +2581,318 @@ public class UHFRManager {
     }
 
     public boolean setGen2session(boolean isMulti) {
-        try {
-            int[] val = new int[]{-1};
-            if (isMulti) {
-                // session 2
-                val[0] = 2;
-                // session 1
-//                val[0] = 1;
-            } else {
-                // session0
-                val[0] = 0;
+        if (type == 0) {
+            int gen2session = getGen2session();
+            if (gen2session != -1) {
+                if (isMulti) {
+                    if (gen2session != 2) {
+                        MsgBaseSetBaseband msg = new MsgBaseSetBaseband();
+                        msg.setSession(2);
+                        msg.setqValue(4);
+                        client.sendSynMsg(msg);
+
+                        logPrint("setGen2session", msg.getRtMsg());
+                    }
+
+                    return true;
+                } else {
+                    MsgBaseSetBaseband msg = new MsgBaseSetBaseband();
+                    msg.setSession(0);
+                    msg.setqValue(4);
+                    client.sendSynMsg(msg);
+
+                    logPrint("setGen2session", msg.getRtMsg());
+                    return msg.getRtCode() == 0;
+                }
             }
-            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION, val);
-            return er == READER_ERR.MT_OK_ERR;
-        } catch (Exception var4) {
             return false;
+        } else if (type == 1) {
+            try {
+                READER_ERR er;
+                int[] val = new int[]{-1};
+                if (isMulti) {
+                    val[0] = 1;
+                    if (isE710) {
+                        val[0] = 2;
+                        //E710模式无需设置
+                        return true;
+                    }
+                } else {
+                    // session0
+                    val[0] = 0;
+                }
+                er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION, val);
+
+                //////////清除快速模式设置////////////
+                Reader.CustomParam_ST cpst=reader.new CustomParam_ST();
+                cpst.ParamName="Reader/Ex10fastmode";
+                byte[] vals=new byte[22];
+                vals[0]=0;
+                vals[1]=20;
+                for(int i=0;i<20;i++)
+                    vals[2+i]=0;
+                cpst.ParamVal=vals;
+                reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpst);
+                ///////////////////////////////////
+                return er == READER_ERR.MT_OK_ERR;
+            } catch (Exception var4) {
+                return false;
+            }
+        } else {
+            //锐迪，未完成
+            int[] gen2 = new int[10];
+
+            String val = driver.GetGen2Para();
+
+            if (val.equals("-1000") || val.equals("-1020")) {
+                return false;
+            } else {
+                for (int i = 0; i < 8; i++) {
+                    // 获取参数
+                    gen2[i] = Integer.parseInt(val.substring(2 * i, 2 * (i + 1)), 16);
+                }
+                if (isMulti) {
+                    gen2[3] = gen2[3] & 0xCF;
+                    gen2[3] = gen2[3] + (1 << 4);
+                } else {
+                    // session0
+                    gen2[3] = gen2[3] & 0xCF;
+                    gen2[3] = gen2[3] + (0 << 4);
+                }
+                int status = 0;
+                status = driver.SetGen2Para(0, gen2);
+
+                if (-1000 == status || -1020 == status || 0 == status) {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
         }
     }
 
     public boolean setGen2session(int session) {
-        try {
-            int[] val = new int[]{-1};
-            val[0] = session;
-            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION, val);
-            return er == READER_ERR.MT_OK_ERR;
-        } catch (Exception var4) {
+        if (type == 0) {
+            int gen2session = getGen2session();
+            if (gen2session != -1) {
+                if (gen2session == session) {
+                    return true;
+                }
+                MsgBaseSetBaseband msg = new MsgBaseSetBaseband();
+                msg.setSession(session);
+                msg.setqValue(4);
+                client.sendSynMsg(msg);
+
+                logPrint("setGen2session", msg.getRtMsg());
+                return msg.getRtCode() == 0;
+            }
             return false;
+        } else if (type == 1) {
+            try {
+                int[] val = new int[]{-1};
+                val[0] = session;
+                READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION, val);
+                return er == READER_ERR.MT_OK_ERR;
+            } catch (Exception var4) {
+                return false;
+            }
+        } else {
+            //锐迪，未完成
+            int[] gen2 = new int[10];
+
+            String val = driver.GetGen2Para();
+
+            if (val.equals("-1000") || val.equals("-1020")) {
+                return false;
+            } else {
+                for (int i = 0; i < 8; i++) {
+                    // 获取参数
+                    gen2[i] = Integer.parseInt(val.substring(2 * i, 2 * (i + 1)), 16);
+                }
+                gen2[3] = gen2[3] & 0xCF;
+                gen2[3] = gen2[3] + (session << 4);
+                int status = 0;
+                status = driver.SetGen2Para(0, gen2);
+
+                if (-1000 == status || -1020 == status || 0 == status) {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
         }
+    }
+
+    /**
+     * 获取session
+     *
+     * @return
+     */
+    public int getGen2session() {
+        if (type == 0) {
+            MsgBaseGetBaseband msg = new MsgBaseGetBaseband();
+            client.sendSynMsg(msg);
+            logPrint("getGen2session", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                return msg.getSession();
+            }
+        } else if (type == 1) {
+            int[] val = new int[]{-1};
+            READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_POTL_GEN2_SESSION, val);
+            if (er == READER_ERR.MT_OK_ERR) {
+                logPrint("pang", "getGen2session = " + val[0]);
+                return val[0];
+            }
+        } else {
+            //锐迪，未完成
+            String val = driver.GetGen2Para();
+            if (val.equals("-1000") || val.equals("-1020")) {
+                return -1;
+            } else {
+                int tmp = Integer.parseInt(val.substring(6, 7), 16);
+                tmp = (tmp & 0x03);
+                return tmp;
+            }
+
+        }
+        return -1;
+    }
+
+    private int Q = 0;
+
+    // 设置Q值
+    public boolean setQvaule(int qvaule) {
+        boolean flag = false;
+        if (type == 0) {
+            MsgBaseSetBaseband msg = new MsgBaseSetBaseband();
+            msg.setqValue(qvaule);
+            client.sendSynMsg(msg);
+            if (msg.getRtCode() == 0) {
+                logPrint("setQvaule", msg.getRtMsg());
+                flag = true;
+            }
+        } else if (type == 1) {
+//            int[] val = new int[]{-1};
+//            val[0] = qvaule;
+//            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_Q, val);
+//            if (er == READER_ERR.MT_OK_ERR) {
+//                flag = true;
+//            }
+            Q = qvaule;
+            flag = true;
+        } else {
+            //锐迪，未完成
+
+        }
+
+        return flag;
+    }
+
+    // 获取Q值
+    public int getQvalue() {
+        int value = -1;
+        if (type == 0) {
+            MsgBaseGetBaseband getBaseband = new MsgBaseGetBaseband();
+            client.sendSynMsg(getBaseband);
+            if (getBaseband.getRtCode() == 0) {
+                value = getBaseband.getqValue();
+                logPrint("getQvalue", getBaseband.getRtMsg());
+            }
+        } else if (type == 1) {
+//            int[] val = new int[]{-1};
+//            READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_POTL_GEN2_Q, val);
+//            if (er == READER_ERR.MT_OK_ERR) {
+//                value = val[0];
+//            }
+            value = Q;
+        } else {
+            //锐迪，未完成
+
+        }
+
+        return value;
+    }
+
+    //获取A|B面
+    public int getTarget() {
+        int target = -1;
+        if (type == 0) {
+            MsgBaseGetBaseband msg = new MsgBaseGetBaseband();
+            client.sendSynMsg(msg);
+            if (msg.getRtCode() == 0) {
+                target = msg.getInventoryFlag();
+            }
+        } else if (type == 1) {
+            int[] val = new int[]{-1};
+            READER_ERR er = reader.ParamGet(Mtr_Param.MTR_PARAM_POTL_GEN2_TARGET, val);
+            if (er == READER_ERR.MT_OK_ERR) {
+                target = val[0];
+            }
+        } else {
+            //锐迪，未完成
+            String val = driver.GetGen2Para();
+            logPrint("zeng-", val);
+            if (val.equals("-1000") || val.equals("-1020")) {
+                target = -1;
+            } else {
+
+                target = Integer.parseInt(val.substring(7, 8), 16);
+                target = (target >> 3) & 0x01;
+
+            }
+
+        }
+        return target;
+    }
+
+    //设置A|B面
+    public boolean setTarget(int target) {
+        boolean flag = false;
+        if (type == 0) {
+            MsgBaseSetBaseband msg = new MsgBaseSetBaseband();
+            msg.setInventoryFlag(target);
+            client.sendSynMsg(msg);
+            if (msg.getRtCode() == 0) {
+                flag = true;
+            }
+        } else if (type == 1) {
+            int[] val = new int[]{-1};
+            val[0] = target;
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_TARGET, val);
+            if (er == READER_ERR.MT_OK_ERR) {
+                flag = true;
+            }
+        } else {
+            //锐迪，未完成
+            int[] gen2 = new int[10];
+
+            String val = driver.GetGen2Para();
+
+            if (val.equals("-1000") || val.equals("-1020")) {
+                return false;
+            } else {
+                for (int i = 0; i < 8; i++) {
+                    // 获取参数
+                    gen2[i] = Integer.parseInt(val.substring(2 * i, 2 * (i + 1)), 16);
+                }
+//                gen2[3] = gen2[3] & 0xCF;
+//                gen2[3] = gen2[3] + (session << 4);
+
+                gen2[3] = gen2[3] & 0xF7;
+                gen2[3] = gen2[3] + (target << 3);
+
+                int status = 0;
+                status = driver.SetGen2Para(0, gen2);
+
+                if (-1000 == status || -1020 == status || 0 == status) {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+        }
+
+        return flag;
     }
 
     public String getInfo() {
@@ -699,28 +2906,181 @@ public class UHFRManager {
         return "";
     }
 
+    //
     public READER_ERR ReadTagLED(int ant, short timeout, short metaflag, TagLED_DATA tagled) {
-        return reader.ReadTagLED(ant, timeout, metaflag, tagled);
+        if (type == 0) {
+            return READER_ERR.MT_CMD_NO_TAG_ERR;
+        } else {
+            return reader.ReadTagLED(ant, timeout, metaflag, tagled);
+
+        }
     }
 
     /**
      * 开启/关闭FastTid
      */
     public boolean setFastID(boolean isOpenFastTiD) {
-        if (isOpenFastTiD) {
-            Reader.CustomParam_ST cpara = reader.new CustomParam_ST();
-            cpara.ParamName = "tagcustomcmd/fastid";
-            cpara.ParamVal = new byte[1];
-            cpara.ParamVal[0] = 1;
-            READER_ERR ret = reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpara);
-            return ret == READER_ERR.MT_OK_ERR;
+        if (type == 0) {
+            fastId.setFastId(isOpenFastTiD ? 1 : 0);
+            return true;
+        } else if (type == 1) {
+            if (isOpenFastTiD) {
+                Reader.CustomParam_ST cpara = reader.new CustomParam_ST();
+                cpara.ParamName = "tagcustomcmd/fastid";
+                cpara.ParamVal = new byte[1];
+                cpara.ParamVal[0] = 1;
+                READER_ERR ret = reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpara);
+                return ret == READER_ERR.MT_OK_ERR;
+            } else {
+                Reader.CustomParam_ST cpara = reader.new CustomParam_ST();
+                cpara.ParamName = "tagcustomcmd/fastid";
+                cpara.ParamVal = new byte[1];
+                READER_ERR ret = reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpara);
+                return ret == READER_ERR.MT_OK_ERR;
+            }
         } else {
-            Reader.CustomParam_ST cpara = reader.new CustomParam_ST();
-            cpara.ParamName = "tagcustomcmd/fastid";
-            cpara.ParamVal = new byte[1];
-            READER_ERR ret = reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpara);
-            return ret == READER_ERR.MT_OK_ERR;
+            //锐迪，未完成
+            int status = 0;
+            if (isOpenFastTiD) {
+                status = driver.SetFastIDStatus(1);            // 开启
+            } else {
+                status = driver.SetFastIDStatus(0);            // 关闭
+            }
+            if (-1000 == status || 0 == status || -1020 == status) {
+                return false;
+            } else {
+                return true;
+            }
         }
     }
 
+    //国芯的方法
+    private static void onTagHandler() {
+        client.onTagEpcLog = new HandlerTagEpcLog() {
+            @Override
+            public void log(String readerName, LogBaseEpcInfo info) {
+                if (info.getResult() == 0) {
+                    synchronized (epcList) {
+                        //暂时存储时间戳
+                        info.setReplySerialNumber(System.currentTimeMillis());
+                        epcList.add(info);
+                    }
+                }
+            }
+        };
+        client.onTagEpcOver = new HandlerTagEpcOver() {
+            @Override
+            public void log(String readerName, LogBaseEpcOver info) {
+                if (DEBUG) {
+                    logPrint("onTagEpcOver", "HandlerTagEpcOver");
+                }
+                //温度读取还需要同步
+                synchronized (epcList) {
+                    epcList.notify();
+                }
+            }
+        };
+
+        client.onTagGbLog = new HandlerTagGbLog() {
+            public void log(String readerName, LogBaseGbInfo info) {
+//                System.out.println(info);
+                if (info.getResult() == 0) {
+                    logPrint("pang", "gbepc = " + info.getEpc());
+                    synchronized (gbepcList) {
+                        //暂时存储时间戳
+                        gbepcList.add(info);
+                    }
+//
+                }
+
+            }
+        };
+        client.onTagGbOver = new HandlerTagGbOver() {
+            public void log(String readerName, LogBaseGbOver info) {
+//                handlerStop.sendEmptyMessage(new Message().what = 1);
+                synchronized (gbepcList) {
+                    gbepcList.notify();
+                }
+            }
+        };
+
+        client.onTagGJbLog = new HandlerTagGJbLog() {
+            public void log(String readerName, LogBaseGJbInfo info) {
+//                System.out.println(info);
+                if (info.getResult() == 0) {
+                    logPrint("pang", "gbepc = " + info.getEpc());
+                    synchronized (gjbepcList) {
+                        //暂时存储时间戳
+                        gjbepcList.add(info);
+                    }
+//
+                }
+
+            }
+        };
+        client.onTagGJbOver = new HandlerTagGJbOver() {
+            @Override
+            public void log(String s, LogBaseGJbOver logBaseGJbOver) {
+                synchronized (gjbepcList) {
+                    gjbepcList.notify();
+                }
+            }
+        };
+
+        client.onTag6bLog = new HandlerTag6bLog() {
+            @Override
+            public void log(String s, LogBase6bInfo logBase6bInfo) {
+                if (logBase6bInfo.getResult() == 0) {
+//                    logPrint("pang", "gbepc = " + info.getEpc());
+                    synchronized (tag6bList) {
+                        //暂时存储时间戳
+                        tag6bList.add(logBase6bInfo);
+                    }
+//
+                }
+            }
+        };
+
+        client.onTag6bOver = new HandlerTag6bOver() {
+            @Override
+            public void log(String s, LogBase6bOver logBase6bOver) {
+                tag6bList.notify();
+            }
+        };
+//        client.onTagGJbOver = new HandlerTagGJbOver() {
+//            public void log(String readerName, LogBaseGJbInfo info) {
+////                handlerStop.sendEmptyMessage(new Message().what = 1);
+//                synchronized (gjbepcList) {
+//                    gjbepcList.notify();
+//                }
+//            }
+//        };
+    }
+
+    public boolean setGen2(String val) {
+        int[] gen2 = new int[10];
+        for (int i = 0; i < 8; i++) {
+            // 获取参数
+            gen2[i] = Integer.parseInt(val.substring(2 * i, 2 * (i + 1)), 16);
+        }
+
+        // 修改session
+        gen2[3] = gen2[3] & 0xCF;
+        int pos = 2;
+        gen2[3] = gen2[3] + (pos << 4);
+
+        // 修改Target
+        gen2[3] = gen2[3] & 0xF7;
+        pos = 0;
+        gen2[3] = gen2[3] + (pos << 3);
+
+        int status = 0;
+        status = driver.SetGen2Para(0, gen2);            // 掉电保存参数
+        if (status != 0 || status != -100 || status != -1020) {
+            if (driver.Inventory_Model_Set(1, false)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
