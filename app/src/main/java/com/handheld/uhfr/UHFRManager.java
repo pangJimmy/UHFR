@@ -36,6 +36,7 @@ import com.gg.reader.api.protocol.gx.MsgBaseInventoryGb;
 import com.gg.reader.api.protocol.gx.MsgBaseLock6b;
 import com.gg.reader.api.protocol.gx.MsgBaseLock6bGet;
 import com.gg.reader.api.protocol.gx.MsgBaseLockEpc;
+import com.gg.reader.api.protocol.gx.MsgBaseLockGJb;
 import com.gg.reader.api.protocol.gx.MsgBaseSetBaseband;
 import com.gg.reader.api.protocol.gx.MsgBaseSetFreqRange;
 import com.gg.reader.api.protocol.gx.MsgBaseSetFrequency;
@@ -43,6 +44,7 @@ import com.gg.reader.api.protocol.gx.MsgBaseSetPower;
 import com.gg.reader.api.protocol.gx.MsgBaseStop;
 import com.gg.reader.api.protocol.gx.MsgBaseWrite6b;
 import com.gg.reader.api.protocol.gx.MsgBaseWriteEpc;
+import com.gg.reader.api.protocol.gx.MsgBaseWriteGJb;
 import com.gg.reader.api.protocol.gx.Param6bReadUserdata;
 import com.gg.reader.api.protocol.gx.ParamEpcFilter;
 import com.gg.reader.api.protocol.gx.ParamEpcReadEpc;
@@ -50,6 +52,7 @@ import com.gg.reader.api.protocol.gx.ParamEpcReadReserved;
 import com.gg.reader.api.protocol.gx.ParamEpcReadTid;
 import com.gg.reader.api.protocol.gx.ParamEpcReadUserdata;
 import com.gg.reader.api.protocol.gx.ParamFastId;
+import com.gg.reader.api.protocol.gx.ParamGbReadUserdata;
 import com.gg.reader.api.utils.HexUtils;
 import com.uhf.api.cls.R2000_calibration.TagLED_DATA;
 import com.uhf.api.cls.ReadListener;
@@ -1327,6 +1330,138 @@ public class UHFRManager {
 
         }
         return list;
+    }
+
+    //国军标读标签内容
+
+    /**
+     * 国军标读标签user区内容
+     * @param matchType  匹配数据类型，0-不匹配， 1-标签信息区， 2-标签编码区，3-标签安全区，4-用户区
+     * @param matchStartAddr 匹配数据起始位
+     * @param matchData  匹配数据内容
+     * @param readAddr  读数据起始地址
+     * @param readLen   读数据长度
+     * @param password  密码
+     * @return
+     */
+    public byte[] readGJBUser(int matchType, int matchAddr, byte[] matchData , int readAddr, int readLen, byte[] password) {
+        byte[] readData = null ;
+        MsgBaseInventoryGJb msg = new MsgBaseInventoryGJb();
+        //获取天线
+        msg.setAntennaEnable(EnumG.AntennaNo_1);
+        msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+        //匹配数据类型
+        if (matchType > 0) {
+            ParamEpcFilter filter = new ParamEpcFilter();
+            filter.setArea(matchType - 1);
+            filter.setBitStart(matchAddr);
+            if (matchData != null) {
+                filter.setbData(matchData);
+                filter.setBitLength(matchData.length * 2);
+            }
+            msg.setFilter(filter);
+        }
+
+        ParamEpcReadUserdata paramEpcReadUserdata = new ParamEpcReadUserdata();
+        paramEpcReadUserdata.setStart(readAddr);
+        paramEpcReadUserdata.setLen(readLen);
+        msg.setReadUserdata(paramEpcReadUserdata);
+
+        if (password != null) {
+            msg.setHexPassword(Tools.Bytes2HexString(password, password.length));
+        }
+        //发送读的指令
+
+        client.sendSynMsg(msg);
+        if (0x00 == msg.getRtCode()) {
+            try {
+                Thread.sleep(20);
+                MsgBaseStop stop = new MsgBaseStop();
+                client.sendSynMsg(stop);
+                List<LogBaseGJbInfo> listGJB = formatGJBData(2);
+                if (listGJB != null && listGJB.size() > 0) {
+                    readData = listGJB.get(0).getbUser();
+                }
+
+            } catch (Exception e) {
+
+            }
+        }
+        return readData ;
+
+    }
+
+    //写国军标标签
+
+    /**
+     *
+     * @param matchType  匹配数据类型，0-不匹配， 1-标签信息区， 2-标签编码区，3-标签安全区，4-用户区
+     * @param matchStartAddr 匹配数据起始位
+     * @param matchData  匹配数据内容
+     * @param areaIndex  0-标签信息区， 1-标签编码区，2-标签安全区，3-用户区
+     * @param startAddr  写起始地址
+     * @param writeData  写数据内容
+     * @param password   访问密码
+     * @return  true写入成功，false写入失败
+     */
+    public boolean writeGJB(int matchType, int matchStartAddr, byte[] matchData, int areaIndex, int startAddr, byte[] writeData,byte[] password) {
+        boolean writeFlag = false ;
+        MsgBaseWriteGJb msg = new MsgBaseWriteGJb();
+        msg.setAntennaEnable(EnumG.AntennaNo_1);
+        msg.setArea(areaIndex);//1标签编码区，2标签安全区，3用户区
+        msg.setStart(startAddr);
+        //设置匹配参数
+        if (matchType > 0) {
+            ParamEpcFilter filter = new ParamEpcFilter();
+            filter.setArea(matchType - 1);
+            filter.setbData(matchData);
+            filter.setBitLength(matchData.length*2) ;
+            filter.setBitStart(matchStartAddr);
+            msg.setFilter(filter);
+        }
+        if (password != null) {
+            msg.setHexPassword(Tools.Bytes2HexString(password, password.length));
+        }
+        if (writeData != null) {
+            msg.setBwriteData(writeData);
+        }
+        client.sendSynMsg(msg);
+        if (0x00 == msg.getRtCode()) {
+            writeFlag = true ;
+        }
+        return writeFlag ;
+    }
+
+    //国军标锁定操作
+    /**
+     * 国军标锁定操作
+     * @param matchType  匹配数据类型，0-不匹配， 1-标签信息区， 2-标签编码区，3-标签安全区，4-用户区
+     * @param matchStartAddr 匹配数据起始位
+     * @param matchData  匹配数据内容
+     * @param lockArea 锁定区域  0-标签信息区， 1-标签编码区，2-标签安全区，3-用户区
+     * @param lockType 锁定类型  0-可读可写， 1-不可读可写， 2-可读不可写， 3-不可读不可写
+     * @param password 锁定密码
+     * @return  true锁定成功，false锁定失败
+     */
+    public boolean lockGJB(int matchType,int matchStartAddr, byte[] matchData, int lockArea,int lockType,byte[] password) {
+        boolean lockFlag = false ;
+        MsgBaseLockGJb msg = new MsgBaseLockGJb();
+        msg.setAntennaEnable(EnumG.AntennaNo_1);
+        //设置匹配参数
+        if (matchType > 0) {
+            ParamEpcFilter filter = new ParamEpcFilter();
+            filter.setArea(matchType - 1);
+            filter.setbData(matchData);
+            filter.setBitLength(matchData.length*2) ;
+            filter.setBitStart(matchStartAddr);
+            msg.setFilter(filter);
+        }
+        msg.setArea(lockArea);
+        msg.setLockParam(lockType);
+        if (password != null) {
+            msg.setHexPassword(Tools.Bytes2HexString(password, password.length));
+        }
+        return lockFlag ;
     }
 
     /**
