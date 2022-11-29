@@ -46,6 +46,17 @@ public class PcUtils {
         return HexUtils.bytes2HexString(bTmp);
     }
 
+    //国军标PC值
+    public static String getGJBPc(int pcLen) {
+        int iPc = pcLen << 8;
+        BitBuffer buffer = BitBuffer.allocateDynamic();
+        buffer.put(iPc);
+        buffer.position(16);
+        byte[] bTmp = new byte[2];
+        buffer.get(bTmp);
+        return HexUtils.bytes2HexString(bTmp);
+    }
+
     public static String padRight(String src, int len, char ch) {
         int diff = len - src.length();
         if (diff <= 0) {

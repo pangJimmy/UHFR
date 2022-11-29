@@ -29,6 +29,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.gg.reader.api.protocol.gx.LogBase6bInfo;
+import com.gg.reader.api.protocol.gx.LogBaseGJbInfo;
 import com.handheld.uhfr.R;
 import com.handheld.uhfr.UHFRManager;
 import com.uhf.api.cls.Reader;
@@ -323,7 +324,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                 list1 = MainActivity.mUhfrManager.tagInventoryRealTime();
             } else {
                 if (isTid) {
-                    list1 = MainActivity.mUhfrManager.tagEpcOtherInventoryByTimer((short) 50,3,0,2,Tools.HexString2Bytes("00000000"));
+                    list1 = MainActivity.mUhfrManager.tagEpcOtherInventoryByTimer((short) 50,2,0,2,Tools.HexString2Bytes("00000000"));
                 } else {
                     list1 = MainActivity.mUhfrManager.tagInventoryByTimer((short) 50);
                 }
@@ -353,6 +354,10 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                         data = Tools.Bytes2HexString(tfs.EmbededData, tfs.EmbededDatalen);
                     } else {
                         data = Tools.Bytes2HexString(epcdata, epcdata.length);
+                    }
+                    if (tfs.EmbededData != null && tfs.EmbededDatalen > 0) {
+                        data = Tools.Bytes2HexString(tfs.EmbededData, tfs.EmbededDatalen);
+                        Log.e("pang", "EMB EDEdata = " + data);
                     }
                     int rssi = tfs.RSSI;
                     Message msg = new Message();
@@ -439,6 +444,8 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             showToast(getActivity().getString(R.string.connection_failed));
             return;
         }
+
+        MainActivity.mUhfrManager.setEMBEDEDATA(3,0,2, Tools.HexString2Bytes("00000000"));
         if (!isStart) {
             // Clear err info
             tvErr.setText("");
@@ -626,20 +633,55 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
         //E0040000B25A1D08
 //        MainActivity.mUhfrManager.write6bTid(0, "E0040000B25A1D09") ;
 //        int qvalue = MainActivity.mUhfrManager.getQvalue() ;
-        List<LogBase6bInfo> list = MainActivity.mUhfrManager.inventory6BTag((short) 20);
-        if (list != null && list.size() > 0) {
+//        List<LogBase6bInfo> list = MainActivity.mUhfrManager.inventory6BTag((short) 20);
+        boolean testpang = true ;
+        if (testpang) {
+
+//            List<LogBaseGJbInfo> list = MainActivity.mUhfrManager.inventoryGJBTag(true, (short) 20);
+//            if (list != null && list.size() > 0) {
 //            byte[] tag6b = MainActivity.mUhfrManager.read6BUser(false, null, 0, 13);
 //            if (tag6b != null) {
 //                showToast("tag6b user = "+ Tools.Bytes2HexString(tag6b, tag6b.length));
 //            }
+//                Log.e("pang", "list epc : " + list.get(0).getEpc());
+//                Log.e("pang", "list tid : " + list.get(0).getTid());
+//                byte[] readData = MainActivity.mUhfrManager.readGJBUser(0,
+//                        0,
+//                        null,
+//                        0,
+//                        4,
+//                        null);
+//                if (readData != null) {
+//                    Log.e("pang", "read data  : " + Tools.Bytes2HexString(readData, readData.length));
+//                }
+                //000000000000000000000000000000000000000000000000000000000000000000000000
+//                byte[] epc = Tools.HexString2Bytes("1234000000000000");
+//                //写入
+//                boolean wflag = MainActivity.mUhfrManager.writeGJB(4,
+//                        0,
+//                        epc,
+//                        3,
+//                        0,
+//                        Tools.HexString2Bytes("5678"),
+//                        null);
+//                Log.e("pang", "writeFlag = "+ wflag);
+                //锁定 tid : A0020706054D016000000000 //000000000000000000000000000000000000000000000000000000000000000000000000
 
-            boolean writeFlag = MainActivity.mUhfrManager.write6BUser(list.get(0).getbTid(), 11, Tools.HexString2Bytes("bbbb"));
-            showToast("writeFlag = "+ writeFlag);
-        }
+//                boolean lockFlag = MainActivity.mUhfrManager.lockGJB(2,
+//                        0,
+//                        null,
+//                        3,
+//                        0,
+//                        null);
+//                Log.e("pang", "lockFlag = "+ lockFlag);
 
+//            boolean writeFlag = MainActivity.mUhfrManager.write6BUser(list.get(0).getbTid(), 11, Tools.HexString2Bytes("bbbb"));
+//            showToast("writeFlag = "+ writeFlag);
+//            }
 
+            MainActivity.mUhfrManager.getYilianTagTemperature() ;
 
-        //温度
+            //温度
 //        String userdata = "48E8";
 //        int integer = Integer.parseInt(userdata.substring(0, 2), 16);
 //        double decimal = (double) (Integer.parseInt(userdata.substring(2, 4), 16)) / 255;
@@ -651,6 +693,8 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
 ////                    tag.setCtesius("-" + (30 - integer + decimal) + "℃");
 //            Log.e("temp ", "temp = -" + (45 - integer + decimal )) ;
 //        }
+        }
+
     }
 
     //show tips
