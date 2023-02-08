@@ -136,7 +136,7 @@ public class UHFRManager {
      */
 //    private boolean MTR_PARAM_TAG_EMBEDEDDATA = true;
 
-    private static boolean DEBUG = true;
+    private static boolean DEBUG = false;
 
     private int rPower = 0;
     private int wPower = 0;
@@ -778,8 +778,12 @@ public class UHFRManager {
             for (LogBaseEpcInfo info : epcList) {
                 TAGINFO taginfo = new Reader().new TAGINFO();
                 taginfo.AntennaID = (byte) info.getAntId();
-                taginfo.Frequency = info.getFrequencyPoint().intValue();
-                taginfo.TimeStamp = info.getReplySerialNumber().intValue();
+                if(info.getFrequencyPoint() != null){
+                    taginfo.Frequency = info.getFrequencyPoint().intValue();
+                }
+                if(info.getReplySerialNumber() != null){
+                    taginfo.TimeStamp = info.getReplySerialNumber().intValue();
+                }
                 switch (bank) {
                     case 0:
                         if (info.getReserved() != null) {
@@ -1492,7 +1496,7 @@ public class UHFRManager {
             //写入新epc
             String s = HexUtils.bytes2HexString(newEPC);
             int pcLen = PcUtils.getValueLen(s);
-            Log.e("pang", "GJB EPC: "+PcUtils.getGJBPc(pcLen) + PcUtils.padRight(s, pcLen * 4, '0'));
+            //Log.e("pang", "GJB EPC: "+PcUtils.getGJBPc(pcLen) + PcUtils.padRight(s, pcLen * 4, '0'));
             msg.setHexWriteData(PcUtils.getGJBPc(pcLen) + PcUtils.padRight(s, pcLen * 4, '0'));
         }
 
@@ -3270,13 +3274,20 @@ public class UHFRManager {
         client.onTagEpcLog = new HandlerTagEpcLog() {
             @Override
             public void log(String readerName, LogBaseEpcInfo info) {
-                if (info.getResult() == 0) {
+                //logPrint("onTagEpcLog", "info.getResult() = " + info.getResult());
+                if (DEBUG && info != null) {
+                    //logPrint("onTagEpcLog", "EPC: " + info.getEpc());
+                }
+                //info.getResult() == 4为LED标签盘点时返回
+                if (info.getResult() == 0 || info.getResult() == 4) {
                     synchronized (epcList) {
                         //暂时存储时间戳
                         info.setReplySerialNumber(System.currentTimeMillis());
+//                        if(info.getEpc() != null)
                         epcList.add(info);
                     }
                 }
+                //logPrint("onTagEpcLog", "epcList.size() = " + epcList.size());
             }
         };
         client.onTagEpcOver = new HandlerTagEpcOver() {
