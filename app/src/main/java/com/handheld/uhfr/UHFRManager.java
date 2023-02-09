@@ -866,8 +866,12 @@ public class UHFRManager {
             for (LogBaseEpcInfo info : epcList) {
                 com.handheld.uhfr.Reader.TEMPTAGINFO taginfo = new com.handheld.uhfr.Reader.TEMPTAGINFO();
                 taginfo.AntennaID = (byte) info.getAntId();
-                taginfo.Frequency = info.getFrequencyPoint().intValue();
-                taginfo.TimeStamp = info.getReplySerialNumber().intValue();
+                if (info.getFrequencyPoint() != null) {
+                    taginfo.Frequency = info.getFrequencyPoint().intValue();
+                }
+                if (info.getReplySerialNumber() != null) {
+                    taginfo.TimeStamp = info.getReplySerialNumber().intValue();
+                }
                 //从user区读出温度数据
                 if (info.getUserdata() != null) {
                     logPrint("pang", "pang, " + info.getUserdata());
@@ -887,14 +891,71 @@ public class UHFRManager {
                             logPrint("temp ", "temp = -" + (45 - integer + decimal));
                             taginfo.Temperature = -(45 - integer + decimal);
                         }
+                        //
+                        taginfo.EpcId = info.getbEpc();
+                        taginfo.Epclen = (short) info.getbEpc().length;
+                        taginfo.PC = HexUtils.int2Bytes(info.getPc());
+
+                        //epcbank读取会影响速度，新增协议0x15获取
+                        if (info.getCrc() != 0) {
+                            taginfo.CRC = HexUtils.int2Bytes(info.getCrc());
+                        }
+                        taginfo.protocol = com.handheld.uhfr.Reader.SL_TagProtocol.SL_TAG_PROTOCOL_GEN2;
+                        taginfo.Phase = info.getPhase();
+                        double v = -39.9 + 6 * log2(info.getRssi());
+                        taginfo.RSSI = (int) Math.round(v);
+                        if (info.getTid() != null) {
+                            if (!tagMap.containsKey(info.getTid())) {
+                                taginfo.ReadCnt = 1;
+                            } else {
+                                com.handheld.uhfr.Reader.TEMPTAGINFO temp = tagMap.get(info.getTid());
+                                if (temp != null) {
+                                    temp.ReadCnt += 1;
+                                    tagMap.put(info.getTid(), temp);
+                                }
+                            }
+                            tagMap.put(info.getTid(), taginfo);
+                        } else {
+                            if (!tagMap.containsKey(info.getEpc())) {
+                                taginfo.ReadCnt = 1;
+                                tagMap.put(info.getEpc(), taginfo);
+                            } else {
+                                com.handheld.uhfr.Reader.TEMPTAGINFO temp = tagMap.get(info.getEpc());
+                                if (temp != null) {
+                                    temp.ReadCnt += 1;
+                                    tagMap.put(info.getEpc(), temp);
+                                }
+                            }
+                        }
                     }
 
-                } else {
-                    NumberFormat nf = NumberFormat.getInstance();
-                    nf.setMaximumFractionDigits(2);
-                    //悦和
-                    taginfo.Temperature = (Double.valueOf(nf.format(info.getCtesiusLtu31() * 0.01)));
                 }
+
+
+            }
+            epcList.clear();
+            return new ArrayList<>(tagMap.values());
+        }
+    }
+
+    //bank 0:RESERVED区，1:EPC区，2:TID区，3:USER区//国芯的处理温度标签的方法
+    public List<com.handheld.uhfr.Reader.TEMPTAGINFO> formatYueheData(){
+        synchronized (epcList) {
+            HashMap<String, com.handheld.uhfr.Reader.TEMPTAGINFO> tagMap = new HashMap<>();
+            for (LogBaseEpcInfo info : epcList) {
+                com.handheld.uhfr.Reader.TEMPTAGINFO taginfo = new com.handheld.uhfr.Reader.TEMPTAGINFO();
+                taginfo.AntennaID = (byte) info.getAntId();
+                if (info.getFrequencyPoint() != null) {
+                    taginfo.Frequency = info.getFrequencyPoint().intValue();
+                }
+                if (info.getReplySerialNumber() != null) {
+                    taginfo.TimeStamp = info.getReplySerialNumber().intValue();
+                }
+
+                NumberFormat nf = NumberFormat.getInstance();
+                nf.setMaximumFractionDigits(2);
+                //悦和
+                taginfo.Temperature = (Double.valueOf(nf.format(info.getCtesiusLtu31() * 0.01)));
 
                 //
                 taginfo.EpcId = info.getbEpc();
@@ -2777,7 +2838,7 @@ public class UHFRManager {
                     Thread.sleep(50);
                     MsgBaseStop stop = new MsgBaseStop();
                     client.sendSynMsg(stop);
-                    taginfos = formatData();
+                    taginfos = formatYueheData();
 //                    if (taginfos.size() > 0) {
 //                        //返回小数点后2位
 ////                        return (taginfos.get(0).Temperature);
