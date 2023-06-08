@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -261,12 +262,12 @@ public class Fragment2_ReadAndWrite extends Fragment implements View.OnClickList
 			showToast(getResources().getString(R.string.please_write_data_type_error));
 			return;
 		}
-		byte[] newEPCByte = Tools.HexString2Bytes(editWriteData.getText().toString().trim());
-		byte[] pcByte = new byte[] { 0x00, 0x00 };
-		pcByte[0] = (byte) (newEPCByte.length * 4);
-		String pc = Tools.Bytes2HexString(pcByte, 2);
-
-		writeStr = pc+writeStr;
+//		byte[] newEPCByte = Tools.HexString2Bytes(editWriteData.getText().toString().trim());
+//		byte[] pcByte = new byte[] { 0x00, 0x00 };
+//		pcByte[0] = (byte) (newEPCByte.length * 4);
+//		String pc = Tools.Bytes2HexString(pcByte, 2);
+//
+//		writeStr = pc+writeStr;
 
 
 		byte[] writeDataBytes = null ;
@@ -287,15 +288,15 @@ public class Fragment2_ReadAndWrite extends Fragment implements View.OnClickList
 		Reader.READER_ERR er ;
 		if (checkBoxFilter.isChecked()) {
 			//change epc:
-//			er = MainActivity.mUhfrManager.writeTagEPCByFilter(writeDataBytes, accessBytes,(short)1000, epcBytes,1, 2,true);
+			er = MainActivity.mUhfrManager.writeTagEPCByFilter(writeDataBytes, accessBytes,(short)1000, epcBytes,1, 2,true);
 			//write data
 
-			er = MainActivity.mUhfrManager.writeTagDataByFilter((char) 1, addr, writeDataBytes, writeDataBytes.length, accessBytes, (short) 1000, epcBytes, 1, 2, true);
+//			er = MainActivity.mUhfrManager.writeTagDataByFilter((char) 1, addr, writeDataBytes, writeDataBytes.length, accessBytes, (short) 1000, epcBytes, 1, 2, true);
 		}else {
 			//change epc:
-//			er = MainActivity.mUhfrManager.writeTagEPC(writeDataBytes,accessBytes,(short) 1000);
+			er = MainActivity.mUhfrManager.writeTagEPC(writeDataBytes,accessBytes,(short) 1000);
 			//write data:
-			er = MainActivity.mUhfrManager.writeTagData((char) 1, addr, writeDataBytes, writeDataBytes.length, accessBytes, (short) 1000);
+//			er = MainActivity.mUhfrManager.writeTagData((char) 1, addr, writeDataBytes, writeDataBytes.length, accessBytes, (short) 1000);
 		}
 		if(er == Reader.READER_ERR.MT_OK_ERR) {
 			addTips(getResources().getString(R.string.write_data_success_));

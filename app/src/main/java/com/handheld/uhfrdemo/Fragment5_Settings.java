@@ -77,7 +77,7 @@ public class Fragment5_Settings extends Fragment implements OnClickListener{
 			currentFreRegion = MainActivity.mUhfrManager.getRegion() ;
 			if (currentFreRegion==Reader.Region_Conf.RG_PRC) spinnerFreq.setSelection(0);
 			if (currentFreRegion==Reader.Region_Conf.RG_NA) spinnerFreq.setSelection(1);
-			if (currentFreRegion==Reader.Region_Conf.RG_NONE) spinnerFreq.setSelection(2);
+			if (currentFreRegion==Reader.Region_Conf.RG_OPEN) spinnerFreq.setSelection(2);
 			if (currentFreRegion==Reader.Region_Conf.RG_KR) spinnerFreq.setSelection(3);
 			if (currentFreRegion==Reader.Region_Conf.RG_EU) spinnerFreq.setSelection(4);
 			if (currentFreRegion==Reader.Region_Conf.RG_EU2) spinnerFreq.setSelection(5);
@@ -131,7 +131,7 @@ public class Fragment5_Settings extends Fragment implements OnClickListener{
 						currentFreRegion = Reader.Region_Conf.RG_NA;
 						break;
 					case 2:
-						currentFreRegion = Reader.Region_Conf.RG_NONE;
+						currentFreRegion = Reader.Region_Conf.RG_OPEN;
 						break;
 					case 3:
 						currentFreRegion = Reader.Region_Conf.RG_KR;
@@ -190,7 +190,7 @@ public class Fragment5_Settings extends Fragment implements OnClickListener{
 				{   currentFreRegion = region;
 					if (currentFreRegion==Reader.Region_Conf.RG_PRC) spinnerFreq.setSelection(0);
 					if (currentFreRegion==Reader.Region_Conf.RG_NA) spinnerFreq.setSelection(1);
-					if (currentFreRegion==Reader.Region_Conf.RG_NONE) spinnerFreq.setSelection(2);
+					if (currentFreRegion==Reader.Region_Conf.RG_OPEN) spinnerFreq.setSelection(2);
 					if (currentFreRegion==Reader.Region_Conf.RG_KR) spinnerFreq.setSelection(3);
 					if (currentFreRegion==Reader.Region_Conf.RG_EU) spinnerFreq.setSelection(4);
 					if (currentFreRegion==Reader.Region_Conf.RG_EU2) spinnerFreq.setSelection(5);

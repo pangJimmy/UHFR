@@ -315,18 +315,15 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
 
         @Override
         public void run() {
-            Thread t = Thread.currentThread();
-            String name = t.getName();
-            System.out.println("name=" + name);
-            List<TAGINFO> list1;
+            List<TAGINFO> list1 = null;
             if (isMulti) {
-                Log.i(TGA, "runnable-isMulti-true");
                 list1 = MainActivity.mUhfrManager.tagInventoryRealTime();
             } else {
                 if (isTid) {
-                    list1 = MainActivity.mUhfrManager.tagEpcOtherInventoryByTimer((short) 50,2,0,2,Tools.HexString2Bytes("00000000"));
+                    list1 = MainActivity.mUhfrManager.tagEpcOtherInventoryByTimer((short) 50,2,0,12,Tools.HexString2Bytes("00000000"));
                 } else {
-                    list1 = MainActivity.mUhfrManager.tagInventoryByTimer((short) 50);
+//                    list1 = MainActivity.mUhfrManager.tagInventoryByTimer((short) 50);
+                    MainActivity.mUhfrManager.getYilianTagTemperature();
                 }
             }
             String data;
@@ -341,10 +338,9 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                 }
 //                onClick(btnStart);
 //                return;
-                Log.e(TAG, "[run] error: " + String.valueOf(UHFRManager.mErr.ordinal()) +  ", error name = "+ UHFRManager.mErr);
+//                Log.e(TAG, "[run] error: " + String.valueOf(UHFRManager.mErr.ordinal()) +  ", error name = "+ UHFRManager.mErr);
             }
-            if (list1 != null && list1.size() > 0) {//
-                Log.i(TGA, list1.size() + "");
+            if (list1 != null && list1.size() > 0) {
                 if (isPlay) {
                     Util.play(1, 0);
                 }
@@ -357,7 +353,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                     }
                     if (tfs.EmbededData != null && tfs.EmbededDatalen > 0) {
                         data = Tools.Bytes2HexString(tfs.EmbededData, tfs.EmbededDatalen);
-                        Log.e("pang", "EMB EDEdata = " + data);
+//                        Log.e("pang", "EMB EDEdata = " + data);
                     }
                     int rssi = tfs.RSSI;
                     Message msg = new Message();
@@ -445,7 +441,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             return;
         }
 
-        MainActivity.mUhfrManager.setEMBEDEDATA(3,0,2, Tools.HexString2Bytes("00000000"));
+        //MainActivity.mUhfrManager.setEMBEDEDATA(3,0,2, Tools.HexString2Bytes("00000000"));
         if (!isStart) {
             // Clear err info
             tvErr.setText("");
@@ -458,7 +454,9 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             btnClear.setEnabled(false);
             btnStart.setText(this.getString(R.string.stop_inventory_epc));
             if (isSession1) {
-                MainActivity.mUhfrManager.setGen2session(1);
+//                MainActivity.mUhfrManager.setGen2session(1);
+                        MainActivity.mUhfrManager.setInventoryFilter(Tools.HexString2Bytes("1169"), 1, 2, true);
+                        MainActivity.mUhfrManager.setInventoryFilter(Tools.HexString2Bytes("0000"), 1, 2, true);
             } else {
                 MainActivity.mUhfrManager.setGen2session(isMulti);
             }
@@ -508,9 +506,9 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             btnExport.setEnabled(false);
             btnClear.setEnabled(false);
             if (isSession1) {
-//                MainActivity.mUhfrManager.setGen2session(1);
+                MainActivity.mUhfrManager.setGen2session(1);
             } else {
-//                MainActivity.mUhfrManager.setGen2session(isMulti);
+                MainActivity.mUhfrManager.setGen2session(isMulti);
             }
             if (isSession1) {
                 MainActivity.mUhfrManager.asyncStartReading(16);
@@ -518,7 +516,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
                 Log.i(TGA, "isMulti-true");
                 MainActivity.mUhfrManager.asyncStartReading();
             }
-//            handler1.postDelayed(runnable_MainActivity1, 0);
+            handler1.postDelayed(runnable_MainActivity1, 0);
             isStart = true;
         } else {
             if (!isTid) {
@@ -679,7 +677,7 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
 //            showToast("writeFlag = "+ writeFlag);
 //            }
 
-            MainActivity.mUhfrManager.getYilianTagTemperature() ;
+//            MainActivity.mUhfrManager.getYilianTagTemperature() ;
 
             //温度
 //        String userdata = "48E8";

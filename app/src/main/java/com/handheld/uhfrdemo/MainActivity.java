@@ -23,6 +23,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.handheld.uhfr.R;
+import com.handheld.uhfr.RrReader;
 import com.handheld.uhfr.UHFRManager;
 import com.uhf.api.cls.Reader;
 
@@ -77,29 +78,32 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
             instance.disableScanKey("137");
         }
 
+        UHFRManager.setDebuggable(true);
         mUhfrManager = UHFRManager.getInstance();// Init Uhf module
         if(mUhfrManager!=null){
-            Reader.READER_ERR err = mUhfrManager.setPower(mSharedPreferences.getInt("readPower",33), mSharedPreferences.getInt("writePower",33));//set uhf module power
-            Log.e("MainActivity", "[onStart] setPower 33dBm: " + err);
-            if(err== Reader.READER_ERR.MT_OK_ERR){
-                mUhfrManager.setRegion(Reader.Region_Conf.valueOf(mSharedPreferences.getInt("freRegion", 1)));
-                Toast.makeText(getApplicationContext(),"FreRegion:"+Reader.Region_Conf.valueOf(mSharedPreferences.getInt("freRegion",1))+
-                        "\n"+"Read Power:"+mSharedPreferences.getInt("readPower",33)+
-                        "\n"+"Write Power:"+mSharedPreferences.getInt("writePower",33),Toast.LENGTH_LONG).show();
+            int session = mUhfrManager.getGen2session();
+            System.out.println("session: " + session);
+//            Reader.READER_ERR err = mUhfrManager.setPower(mSharedPreferences.getInt("readPower",33), mSharedPreferences.getInt("writePower",33));//set uhf module power
+//            Log.e("MainActivity", "[onStart] setPower 33dBm: " + err);
+//            if(err== Reader.READER_ERR.MT_OK_ERR){
+//                mUhfrManager.setRegion(Reader.Region_Conf.valueOf(mSharedPreferences.getInt("freRegion", 1)));
+//                Toast.makeText(getApplicationContext(),"FreRegion:"+Reader.Region_Conf.valueOf(mSharedPreferences.getInt("freRegion",1))+
+//                        "\n"+"Read Power:"+mSharedPreferences.getInt("readPower",33)+
+//                        "\n"+"Write Power:"+mSharedPreferences.getInt("writePower",33),Toast.LENGTH_LONG).show();
 //                showToast(getString(R.string.inituhfsuccess));
-            }else {
-
-                Reader.READER_ERR err1 = mUhfrManager.setPower(30, 30);//set uhf module power
-                Log.e("MainActivity", "[onStart] setPower 30dBm: " + err1);
-                if(err1== Reader.READER_ERR.MT_OK_ERR) {
-                    mUhfrManager.setRegion(Reader.Region_Conf.valueOf(mSharedPreferences.getInt("freRegion", 1)));
-                    Toast.makeText(getApplicationContext(), "FreRegion:" + Reader.Region_Conf.valueOf(mSharedPreferences.getInt("freRegion", 1)) +
-                            "\n" + "Read Power:" + 30 +
-                            "\n" + "Write Power:" + 30, Toast.LENGTH_LONG).show();
-                }else {
-                    showToast(getString(R.string.inituhffail));
-                }
-            }
+//            }else {
+//
+//                Reader.READER_ERR err1 = mUhfrManager.setPower(30, 30);//set uhf module power
+//                Log.e("MainActivity", "[onStart] setPower 30dBm: " + err1);
+//                if(err1== Reader.READER_ERR.MT_OK_ERR) {
+//                    mUhfrManager.setRegion(Reader.Region_Conf.valueOf(mSharedPreferences.getInt("freRegion", 1)));
+//                    Toast.makeText(getApplicationContext(), "FreRegion:" + Reader.Region_Conf.valueOf(mSharedPreferences.getInt("freRegion", 1)) +
+//                            "\n" + "Read Power:" + 30 +
+//                            "\n" + "Write Power:" + 30, Toast.LENGTH_LONG).show();
+//                }else {
+//                    showToast(getString(R.string.inituhffail));
+//                }
+//            }
         }else {
             showToast(getString(R.string.inituhffail));
         }
