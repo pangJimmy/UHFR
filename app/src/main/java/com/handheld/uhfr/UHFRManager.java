@@ -728,6 +728,59 @@ public class UHFRManager {
         }
         return READER_ERR.MT_CMD_FAILED_ERR;
     }
+    public READER_ERR InventoryFilters() {
+        if(type ==1) {
+            int session = getGen2session();
+            logPrint("pang", "AsyncStartReading");
+            int option = 16;
+
+            if (session == 1) {
+                if (isEmb) {
+                    option = Emboption;
+                }
+                return reader.AsyncStartReading(ants, 1, option);
+            } else {
+                option = 0;
+                if (isEmb) {
+                    option = Emboption;
+                }
+                return reader.AsyncStartReading(ants, 1, option);
+            }
+
+        }else {
+            return READER_ERR.MT_CMD_FAILED_ERR;
+        }
+    }
+
+    public boolean setInventoryFilters(String[] mepc) {
+        if (type == 0) {
+//            ParamEpcFilter paramEpcFilter = new ParamEpcFilter();
+//            paramEpcFilter.setArea(fbank);
+//            paramEpcFilter.setBitStart(fstartaddr * 16);//word
+//            paramEpcFilter.setbData(fdata);
+//            paramEpcFilter.setBitLength(fdata.length * 8);
+//            filter = new CusParamFilter(paramEpcFilter, matching);
+//            return true;
+        } else if (type == 1) {
+//            for(int i=0;i<myapp.mfiltags.size();i++)
+//                mepc[i]=myapp.mfiltags.get(i);
+            READER_ERR er = reader.ParamSet(Reader.Mtr_Param.MTR_PARAM_TAG_MULTISELECTORS, mepc);
+            if (er != READER_ERR.MT_OK_ERR) {
+                logPrint("setInventoryFilters, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
+                return false;
+            }
+            return true;
+        } else if (type == 2) {
+//锐迪未完成//
+            return true;
+
+
+        } else if (type == 3) {
+//            RrReader.setInvMask(fdata, fbank, fstartaddr, matching);
+            return true;
+        }
+        return false;
+    }
 
     public boolean setInventoryFilter(byte[] fdata, int fbank, int fstartaddr, boolean matching) {
         if (type == 0) {
