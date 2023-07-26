@@ -52,6 +52,10 @@ dependencies {
     implementation files('libs/logutil-1.5.1.1.jar')
     implementation files('libs/logutil-1.5.1.1.jar')
     implementation fileTree(include: ['*.aar'], dir: 'libs')
+    implementation files('libs\\logutil-1.5.1.1.jar')
+    implementation files('libs\\App_Demo_API.jar')
+    implementation files('libs\\DeviceAPIver20150204.jar')
+    implementation files('libs\\reader(1).jar')
     customConfig fileTree(include: ['*.aar'], dir: 'libs')
     tempConfig fileTree(dest_dir)
 }
@@ -91,7 +95,7 @@ sync_aars.dependsOn(cleanJarDir)
 task aMakeJar(type: Jar) {
     println("makeJar")
     //指定生成的jar名
-    baseName 'UHF67_v3.0'
+    baseName 'UHF67_v3.2.1'
     //从哪里打包class文件
     from "build/intermediates/javac/debug/classes/"
     configurations.tempConfig.findAll {
