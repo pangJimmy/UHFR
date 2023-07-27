@@ -114,7 +114,7 @@ public class UHFRManager {
     private static final MsgCallback callback = new MsgCallback();
     //6106
     private static SerialPort sSerialPort;
-    private final String tag = "UHFRManager";
+    private static final String tag = "UHFRManager";
     private static Reader reader;
     private final int[] ants = new int[]{1};
     private final int ant = 1;
@@ -154,14 +154,12 @@ public class UHFRManager {
 
     private static void logPrint(String content) {
         if (DEBUG) {
-            Log.e("huang,UHFRManager", content);
+            Log.e(tag, content);
         }
     }
 
     private static void logPrint(String tag, String content) {
-        if (DEBUG) {
-            Log.e("[" + tag + "]->", content);
-        }
+        logPrint("[" + tag + "]->" + content);
     }
 
     private static UHFRManager uhfrManager = null;
@@ -314,29 +312,50 @@ public class UHFRManager {
                         type = 1;
                         isE710 = true;
                     } else {
-                        SystemClock.sleep(10);
+                        SystemClock.sleep(80);
                         serialPort = new SerialPort(port, 921600, 0);
                         outputStream = serialPort.getOutputStream();
                         inputStream = serialPort.getInputStream();
                         outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
                         outputStream.flush();
-                        SystemClock.sleep(8);
+                        SystemClock.sleep(10);
                         read = inputStream.read(bytes);
                         retStr = Tools.Bytes2HexString(bytes, read);
-                        logPrint("connect", "retStr3: " + retStr);
+                        logPrint("connect", "retStr3(921600): " + retStr);
                         if (retStr.length() > 10) {
                             // 荣睿模块
                             type = 3;
-                        } else {
-                            cmd = "A55A000902000B0D0A";
-                            outputStream.write(Tools.HexString2Bytes(cmd));
+                            // 切换波特率
+                            outputStream.write(Tools.HexString2Bytes("05002806B3E5"));
                             outputStream.flush();
-                            Thread.sleep(20);
+                            SystemClock.sleep(50);
                             read = inputStream.read(bytes);
                             retStr = Tools.Bytes2HexString(bytes, read);
-                            logPrint("connect", "retStr4: " + retStr);
+                            logPrint("connect", "rr switch to 115200: " + retStr);
+                        } else {
+                            serialPort = new SerialPort(port, 115200, 0);
+                            outputStream = serialPort.getOutputStream();
+                            inputStream = serialPort.getInputStream();
+                            outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
+                            outputStream.flush();
+                            SystemClock.sleep(10);
+                            read = inputStream.read(bytes);
+                            retStr = Tools.Bytes2HexString(bytes, read);
+                            logPrint("connect", "retStr3(115200): " + retStr);
                             if (retStr.length() > 10) {
-                                type = 2;
+                                // 荣睿模块
+                                type = 3;
+                            } else {
+                                cmd = "A55A000902000B0D0A";
+                                outputStream.write(Tools.HexString2Bytes(cmd));
+                                outputStream.flush();
+                                Thread.sleep(20);
+                                read = inputStream.read(bytes);
+                                retStr = Tools.Bytes2HexString(bytes, read);
+                                logPrint("connect", "retStr4: " + retStr);
+                                if (retStr.length() > 10) {
+                                    type = 2;
+                                }
                             }
                         }
                     }
@@ -408,7 +427,7 @@ public class UHFRManager {
             } else {
             }
         } else if (type == 3) {
-            int result = RrReader.connect("/dev/ttyMT1", 921600, DEBUG ? 1 : 0);
+            int result = RrReader.connect("/dev/ttyMT1", 115200, DEBUG ? 1 : 0);
             if (result == 0) {
                 RrReader.rrlib.SetCallBack(callback);
                 return true;
