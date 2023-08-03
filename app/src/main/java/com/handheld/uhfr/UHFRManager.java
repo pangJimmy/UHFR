@@ -154,7 +154,7 @@ public class UHFRManager {
 
     private static void logPrint(String content) {
         if (DEBUG) {
-            Log.e(tag, content);
+            Log.i(tag, content);
         }
     }
 
@@ -174,10 +174,16 @@ public class UHFRManager {
         if (uhfrManager == null) {
             if (connect()) {
                 uhfrManager = new UHFRManager();
+            } else {
+                logPrint("First connect failed, try it again");
+                boolean reconnect = connect();
+                if (reconnect) {
+                    uhfrManager = new UHFRManager();
+                }
             }
         }
         long outTime = SystemClock.elapsedRealtime();
-        Log.i("zeng-", "init uhf time: " + (outTime - enterTime));
+        logPrint("Init uhf time: " + (outTime - enterTime));
         return uhfrManager;
     }
 
@@ -202,6 +208,7 @@ public class UHFRManager {
             if (disconnectResult == 0) {
                 new SerialPort().power_5Voff();
                 uhfrManager = null;
+                logPrint("Close power of rr reader");
                 return true;
             } else {
                 logPrint("Rr close error: " + disconnectResult);
@@ -209,6 +216,7 @@ public class UHFRManager {
         }
         new SerialPort().power_5Voff();
         uhfrManager = null;
+        logPrint("Close power of reader");
         return true;
 
     }

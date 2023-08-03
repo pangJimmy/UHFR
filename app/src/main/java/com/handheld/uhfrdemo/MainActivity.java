@@ -1,5 +1,6 @@
 package com.handheld.uhfrdemo;
 
+import java.io.IOException;
 import java.util.Set;
 import android.annotation.SuppressLint;
 import android.content.SharedPreferences;
@@ -119,11 +120,11 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
             instance.enableScanKey("134");
             instance.enableScanKey("137");
         }
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            Thread.sleep(500);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
         if (mUhfrManager != null) {//close uhf module
             mUhfrManager.close();
             mUhfrManager = null;
@@ -252,28 +253,28 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         }
     }
 
-    private long exitTime = 0;//key down time
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_BACK:
-                if (System.currentTimeMillis() - exitTime >= 2000) {
-                    exitTime = System.currentTimeMillis();
-                    showToast(getString(R.string.quit_on_double_click_));
-                    return true;
-                } else {
-                    showToast(getString(R.string.exiting));
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    finish();
-                }
-                break;
-        }
-        return super.onKeyDown(keyCode, event);
-    }
+//    private long exitTime = 0;//key down time
+//    @Override
+//    public boolean onKeyDown(int keyCode, KeyEvent event) {
+//        switch (keyCode) {
+//            case KeyEvent.KEYCODE_BACK:
+//                if (System.currentTimeMillis() - exitTime >= 2000) {
+//                    exitTime = System.currentTimeMillis();
+//                    showToast(getString(R.string.quit_on_double_click_));
+//                    return true;
+//                } else {
+//                    showToast(getString(R.string.exiting));
+//                    try {
+//                        Thread.sleep(1000);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                    finish();
+//                }
+//                break;
+//        }
+//        return super.onKeyDown(keyCode, event);
+//    }
 
     private Toast mToast;
     //show toast
