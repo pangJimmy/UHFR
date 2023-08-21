@@ -28,5 +28,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:name="com.handheld.uhfrdemo.JgDwellSetActivity"
+            android:launchMode="singleTask"
+            android:label="@string/app_name" >
+        </activity>
     </application>
 </manifest>

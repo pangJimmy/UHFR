@@ -2825,6 +2825,9 @@ public class UHFRManager {
                 case 8:
                     msg.setFreqRangeIndex(4);//ETSI_866_868
                     break;
+                case 255:
+                    msg.setFreqRangeIndex(9);//TEST(全频段)
+                    break;
                 default:
                     msg.setFreqRangeIndex(99);//其它值给个不存在的值，默认失败
                     break;
@@ -2893,6 +2896,8 @@ public class UHFRManager {
                         return Region_Conf.valueOf(1);
                     case 4://ETSI_866_868
                         return Region_Conf.valueOf(8);
+                    case 9://TEST(全频段)
+                        return Region_Conf.valueOf(255);
                 }
             }
             return null;
@@ -3666,6 +3671,30 @@ public class UHFRManager {
             return true;
         }
         return false;
+    }
+
+    /**
+     * 设置荣睿的盘点间隔以及载波持续时间
+     *
+     * @return 0 成功，其他 失败
+     */
+    public int setRrJgDwell(int jgTiem, int dwell) {
+        if (type == 3) {
+            return RrReader.setJgDwell(jgTiem, dwell);
+        } else {
+            return -1;
+        }
+    }
+
+    /**
+     * 获取荣睿的盘点间隔以及载波持续时间
+     */
+    public int[] getRrJgDwell() {
+        if (type == 3) {
+            return RrReader.getJgDwell();
+        } else {
+            return new int[]{-1, -1};
+        }
     }
 
     //国芯的方法

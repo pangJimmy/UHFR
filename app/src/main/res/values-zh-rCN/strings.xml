@@ -136,4 +136,12 @@
     <string name="timeout">停止时间(ms)：</string>
     <string name="def_timeout">10000</string>
 
+    <string name="timeInterval">间隔时间:</string>
+    <string name="dwelltime">驻留时间:</string>
+    <string name="strrb1">性能优先</string>
+    <string name="strrb2">平衡配置</string>
+    <string name="strrb3">续航优先</string>
+    <string name="strrb4">自定义</string>
+    <string name="getstr">读取</string>
+    <string name="setstr">设置</string>
 </resources>

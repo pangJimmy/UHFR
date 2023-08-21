@@ -134,4 +134,12 @@
     <string name="timeout">StopTime(ms): </string>
     <string name="def_timeout">10000</string>
 
+    <string name="timeInterval">Interval:</string>
+    <string name="dwelltime">DwellTime:</string>
+    <string name="strrb1">Performance preferred</string>
+    <string name="strrb2">Balanced</string>
+    <string name="strrb3">Energy saving</string>
+    <string name="strrb4">Custom</string>
+    <string name="getstr">Get</string>
+    <string name="setstr">Set</string>
 </resources>

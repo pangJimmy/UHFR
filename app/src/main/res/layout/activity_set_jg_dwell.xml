@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:layout_width="0dip"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_weight="1"
+            android:gravity="right"
+            android:text="@string/timeInterval" />
+
+        <Spinner
+            android:id="@+id/jgTime_spinner"
+            android:layout_width="0dip"
+            android:layout_height="40dp"
+            android:layout_weight="2"
+            android:gravity="left" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:layout_width="0dip"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_weight="1"
+            android:gravity="right"
+            android:text="@string/dwelltime" />
+
+        <Spinner
+            android:id="@+id/dwell_spinner"
+            android:layout_width="0dip"
+            android:layout_height="40dp"
+            android:layout_weight="2"
+            android:gravity="left" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content">
+
+        <RadioGroup
+            android:id="@+id/group_monza_status"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:gravity="left"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/rb_perf"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1"
+
+                android:text="@string/strrb1"
+                android:textColor="#333333" />
+
+            <RadioButton
+                android:id="@+id/rb_bal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1"
+                android:text="@string/strrb2"
+                android:textColor="#333333" />
+
+            <RadioButton
+                android:id="@+id/rb_ene"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1"
+                android:checked="true"
+                android:text="@string/strrb3"
+                android:textColor="#333333" />
+
+            <RadioButton
+                android:id="@+id/rb_cus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1"
+                android:text="@string/strrb4"
+                android:textColor="#333333" />
+        </RadioGroup>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp">
+
+        <Button
+            android:id="@+id/ivt_read"
+            android:layout_width="0dip"
+            android:layout_height="40dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_weight="1"
+            android:background="@drawable/color_button_selector"
+            android:text="@string/getstr" />
+
+        <Button
+            android:id="@+id/ivt_setting"
+            android:layout_width="0dip"
+            android:layout_height="40dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_weight="1"
+            android:background="@drawable/color_button_selector"
+            android:text="@string/setstr" />
+    </LinearLayout>
+</LinearLayout>

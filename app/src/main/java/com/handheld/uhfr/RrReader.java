@@ -235,6 +235,7 @@ public class RrReader {
         savedQValue = param.QValue;
         rrlib.SetInventoryPatameter(param);
         int result = rrlib.Connect(comPort, baudRate, logswitch);
+        Log.d("huang,UHFRManager", "Rr connect rrlib result = " + result);
         if (result == 0) {
             // 恢复默认写入功率设置
             byte[] readPower = new byte[1];
@@ -242,6 +243,9 @@ public class RrReader {
             if (result == 0) {
                 int writePower = (readPower[0] | (1 << 7));
                 result = rrlib.SetWritePower((byte) writePower);
+                if (result == 0) {
+                    result = setJgDwell(6, 2);
+                }
             }
         }
         return result;
@@ -369,6 +373,31 @@ public class RrReader {
         mask.MaskMem = (byte) fbank;
         rrlib.AddMaskList(mask);
         rrlib.SetMatchType(matching ? (byte) 0 : (byte) 1);
+    }
+
+    public static int setJgDwell(int jgTime, int dwell) {
+        if (rrlib.ModuleType == 2) {
+            byte[] data = new byte[3];
+            data[0] = (byte) jgTime;
+            data[1] = (byte) dwell;
+            int len = 3;
+            return rrlib.SetCfgParameter((byte) 0, (byte) 7, data, len);
+        }
+        return -1;
+    }
+
+    public static int[] getJgDwell() {
+        int[] ints = new int[]{-1, -1};
+        if (rrlib.ModuleType == 2) {
+            byte[] data = new byte[30];
+            int[] len = new int[1];
+            int fCmdRet = rrlib.GetCfgParameter((byte) 7, data, len);
+            if (fCmdRet == 0 && len[0] == 3) {
+                ints[0] = (data[0] & 0xFF);
+                ints[1] = (data[1] & 0xFF);
+            }
+        }
+        return ints;
     }
 
     public static int startRead() {
