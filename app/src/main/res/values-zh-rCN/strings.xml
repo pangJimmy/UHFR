@@ -144,4 +144,10 @@
     <string name="strrb4">自定义</string>
     <string name="getstr">读取</string>
     <string name="setstr">设置</string>
+    <string name="reserved">保留区</string>
+    <string name="confirm">确认</string>
+    <string name="tid">TID</string>
+    <string name="user">USER</string>
+    <string name="mode">专用模式</string>
+
 </resources>

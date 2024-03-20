@@ -142,4 +142,10 @@
     <string name="strrb4">Custom</string>
     <string name="getstr">Get</string>
     <string name="setstr">Set</string>
+
+    <string name="reserved">reserved</string>
+    <string name="confirm">confirm</string>
+    <string name="tid">TID</string>
+    <string name="user">USER</string>
+    <string name="mode">expert mode</string>
 </resources>

@@ -1,0 +1,324 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#fff">
+
+    <CheckBox
+        android:id="@+id/checkbox_res"
+        android:layout_width="match_parent"
+        android:layout_height="50sp"
+        android:layout_marginLeft="20sp"
+        android:text="@string/reserved"
+        android:textSize="30sp" />
+
+    <LinearLayout
+        android:id="@+id/ll_res"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="20sp"
+            android:layout_marginRight="30sp"
+            android:gravity="center"
+            android:minWidth="400dp"
+            android:singleLine="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:minWidth="130sp"
+                android:text="@string/start_addr"
+                android:textSize="30sp" />
+
+            <EditText
+                android:id="@+id/ed_res_add"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10sp"
+                android:minWidth="200sp"
+                android:textSize="30sp"
+                android:inputType="number"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/linear_user_login"
+            android:layout_marginLeft="20sp"
+            android:layout_marginRight="30sp"
+            android:gravity="center"
+            android:minWidth="400dp"
+            android:singleLine="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/linear_user_login"
+                android:gravity="center"
+                android:minWidth="130sp"
+                android:text="@string/length"
+                android:textSize="30sp" />
+
+            <EditText
+                android:id="@+id/ed_res_len"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10sp"
+                android:minWidth="200sp"
+                android:textSize="30sp"
+                android:inputType="number"/>
+        </LinearLayout>
+    </LinearLayout>
+    <CheckBox
+        android:id="@+id/checkbox_epc"
+        android:layout_width="match_parent"
+        android:layout_height="50sp"
+        android:layout_marginLeft="20sp"
+        android:text="@string/epc"
+        android:textSize="30sp" />
+
+    <LinearLayout
+        android:id="@+id/ll_epc"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="20sp"
+            android:layout_marginRight="30sp"
+            android:gravity="center"
+            android:minWidth="400dp"
+            android:singleLine="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:minWidth="130sp"
+                android:text="@string/start_addr"
+                android:textSize="30sp" />
+
+            <EditText
+                android:id="@+id/ed_epc_add"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10sp"
+                android:minWidth="200sp"
+                android:textSize="30sp"
+                android:inputType="number"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/linear_user_login"
+            android:layout_marginLeft="20sp"
+            android:layout_marginRight="30sp"
+            android:gravity="center"
+            android:minWidth="400dp"
+            android:singleLine="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/linear_user_login"
+                android:gravity="center"
+                android:minWidth="130sp"
+                android:text="@string/length"
+                android:textSize="30sp" />
+
+            <EditText
+                android:id="@+id/ed_epc_len"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10sp"
+                android:minWidth="200sp"
+                android:textSize="30sp"
+                android:inputType="number"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <CheckBox
+        android:id="@+id/checkbox_tid"
+        android:layout_width="match_parent"
+        android:layout_height="50sp"
+        android:layout_marginLeft="20sp"
+        android:text="@string/tid"
+        android:textSize="30sp" />
+
+    <LinearLayout
+        android:id="@+id/ll_tid"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/linear_user_login"
+            android:layout_marginLeft="20sp"
+            android:layout_marginRight="30sp"
+            android:gravity="center"
+            android:minWidth="400dp"
+            android:singleLine="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/linear_user_login"
+                android:gravity="center"
+                android:minWidth="130sp"
+                android:text="@string/start_addr"
+                android:textSize="30sp" />
+
+            <EditText
+                android:id="@+id/ed_tid_add"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10sp"
+                android:minWidth="200sp"
+                android:textSize="30sp"
+                android:inputType="number" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/linear_user_login"
+            android:layout_marginLeft="20sp"
+            android:layout_marginRight="30sp"
+            android:gravity="center"
+            android:minWidth="400dp"
+            android:singleLine="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/linear_user_login"
+                android:gravity="center"
+                android:minWidth="130sp"
+                android:text="@string/length"
+                android:textSize="30sp" />
+
+            <EditText
+                android:id="@+id/ed_tid_len"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10sp"
+                android:minWidth="200sp"
+                android:textSize="30sp"
+                android:inputType="number" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <CheckBox
+        android:id="@+id/checkbox_user"
+        android:layout_width="match_parent"
+        android:layout_height="50sp"
+        android:layout_marginLeft="20sp"
+        android:text="@string/user"
+        android:textSize="30sp" />
+
+    <LinearLayout
+        android:id="@+id/ll_user"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/linear_user_login"
+            android:layout_marginLeft="20sp"
+            android:layout_marginRight="30sp"
+            android:gravity="center"
+            android:minWidth="400dp"
+            android:singleLine="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/linear_user_login"
+                android:gravity="center"
+                android:minWidth="130sp"
+                android:text="@string/start_addr"
+                android:textSize="30sp" />
+
+            <EditText
+                android:id="@+id/ed_user_add"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10sp"
+                android:minWidth="200sp"
+                android:textSize="30sp"
+                android:inputType="number"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/linear_user_login"
+            android:layout_marginLeft="20sp"
+            android:layout_marginRight="30sp"
+            android:gravity="center"
+            android:minWidth="400dp"
+            android:singleLine="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/linear_user_login"
+                android:gravity="center"
+                android:minWidth="130sp"
+                android:text="@string/length"
+                android:textSize="30sp" />
+
+            <EditText
+                android:id="@+id/ed_user_len"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10sp"
+                android:inputType="number"
+                android:minWidth="200sp"
+                android:textSize="30sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btn_login"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:minWidth="300dp"
+        android:padding="10sp"
+        android:text="@string/confirm"
+        android:textSize="35sp" />
+
+    <Button
+        android:id="@+id/btn_exit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:minWidth="300dp"
+        android:padding="10sp"
+        android:text="@string/cancel"
+        android:textSize="35sp" />
+
+</LinearLayout>

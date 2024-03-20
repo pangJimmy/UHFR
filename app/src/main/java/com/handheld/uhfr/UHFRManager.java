@@ -59,6 +59,7 @@ import com.rfid.trans.ReadTag;
 import com.rfid.trans.ReaderHelp;
 import com.rfid.trans.TagCallback;
 import com.uhf.api.cls.BackReadOption;
+import com.uhf.api.cls.InvEmbeddedBankData;
 import com.uhf.api.cls.R2000_calibration.TagLED_DATA;
 import com.uhf.api.cls.ReadListener;
 import com.uhf.api.cls.Reader;
@@ -4017,6 +4018,19 @@ public class UHFRManager {
         }
         return READER_ERR.MT_CMD_FAILED_ERR;
 
+    }
+
+    public void setAttachedData(){
+        if(type==1){
+
+            ArrayList<InvEmbeddedBankData> bankdatas = new ArrayList<InvEmbeddedBankData>();
+//            bankdatas.add(new InvEmbeddedBankData((byte)0, 0, (byte)2));
+//            bankdatas.add(new InvEmbeddedBankData((byte)2, 0, (byte)6));
+            bankdatas.add(new InvEmbeddedBankData((byte)3, 0, (byte)2));
+            byte[] accpwd = new byte[] {0x00, 0x00, 0x00, 0x00};
+            READER_ERR err = reader.SetInvMultiEmbeddedData(bankdatas, accpwd);
+            LogUtils.e("setAttachedData:"+err.toString());
+        }
     }
 
 }
