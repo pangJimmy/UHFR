@@ -9,7 +9,7 @@ android {
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 28
         versionCode 19
-        versionName "2.0.12"
+        versionName "2.0.3"
         ndk {
             abiFilters 'armeabi-v7a', 'x86', 'x86_64'
         }
@@ -53,6 +53,7 @@ dependencies {
     implementation files('libs\\ModuleAPI_J.jar')
     customConfig fileTree(include: ['*.aar'], dir: 'libs')
     tempConfig fileTree(dest_dir)
+
 }
 
 task cleanJarDir(type: Delete) {
@@ -90,7 +91,7 @@ sync_aars.dependsOn(cleanJarDir)
 task aMakeJar(type: Jar) {
     println("makeJar")
     //指定生成的jar名
-    baseName 'UHF67_v3.6'
+    baseName 'UHF67_v3.8.1'
     //从哪里打包class文件
     from "build/intermediates/javac/debug/classes/"
     configurations.tempConfig.findAll {
@@ -107,6 +108,7 @@ task aMakeJar(type: Jar) {
     exclude('/com/handheld/uhfr/BuildConfig.class')
     exclude('/com/handheld/uhfr/UHFRManagerBank.class')
     exclude('/com/handheld/uhfrdemo')
+    exclude('/cn')
     //此段代码将相关信息写到META-INF文件中的MANEFEST.MF文件
     manifest {
         attributes(

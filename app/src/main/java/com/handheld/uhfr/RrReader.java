@@ -551,6 +551,7 @@ public class RrReader {
                 byte[] epcId = Tools.HexString2Bytes(epcTemp.EPC);
                 temptaginfo.EpcId = epcId;
                 temptaginfo.Epclen = (short) epcId.length;
+                temptaginfo.RSSI = epcTemp.RSSI;
                 BigDecimal bigDecimal = new BigDecimal(epcTemp.temp);
                 temptaginfo.Temperature = bigDecimal.setScale(2, RoundingMode.HALF_UP).doubleValue();
                 taginfos.add(temptaginfo);
