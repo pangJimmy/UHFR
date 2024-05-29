@@ -560,4 +560,12 @@ public class RrReader {
         return taginfos;
     }
 
+    public static int setCarrier(int state){
+        if(state==0){
+            return  RrReader.rrlib.RfOutput((byte)0x00);
+        }else if(state==1){
+            return  RrReader.rrlib.RfOutput((byte)0x01);
+        }
+        return -1;
+    }
 }

@@ -4033,4 +4033,12 @@ public class UHFRManager {
         }
     }
 
+    public int setCarrier(int value) {
+        if(type ==3){
+            return RrReader.setCarrier(value);
+
+        }
+        return -1;
+    }
+
 }
