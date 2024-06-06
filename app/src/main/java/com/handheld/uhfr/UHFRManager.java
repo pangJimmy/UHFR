@@ -4,6 +4,7 @@ import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.util.Log;
 import android.util.LogPrinter;
+import android.widget.Toast;
 
 import com.apkfuns.logutils.LogUtils;
 import com.gg.reader.api.dal.GClient;
@@ -705,7 +706,7 @@ public class UHFRManager {
                 cpst.ParamVal = vals;
                 reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpst);
 
-                return reader.AsyncStartReading(ants, 1, 0);
+                return reader.AsyncStartReading(ants, 1, option);
             }
             return reader.AsyncStartReading(ants, 1, option);
         } else if (type == 2) {
@@ -1950,6 +1951,7 @@ public class UHFRManager {
             Reader.EmbededData_ST edst = reader.new EmbededData_ST();
             edst.bank = bank;
             edst.startaddr = startaddr;
+            LogUtils.e("zneg-:" + bytecnt);
             edst.bytecnt = bytecnt;
             edst.accesspwd = accesspwd;
             reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
@@ -4020,25 +4022,81 @@ public class UHFRManager {
 
     }
 
-    public void setAttachedData(){
-        if(type==1){
+    public void setAttachedData() {
+        if (type == 1) {
 
             ArrayList<InvEmbeddedBankData> bankdatas = new ArrayList<InvEmbeddedBankData>();
 //            bankdatas.add(new InvEmbeddedBankData((byte)0, 0, (byte)2));
 //            bankdatas.add(new InvEmbeddedBankData((byte)2, 0, (byte)6));
-            bankdatas.add(new InvEmbeddedBankData((byte)3, 0, (byte)2));
-            byte[] accpwd = new byte[] {0x00, 0x00, 0x00, 0x00};
+            bankdatas.add(new InvEmbeddedBankData((byte) 3, 0, (byte) 2));
+            byte[] accpwd = new byte[]{0x00, 0x00, 0x00, 0x00};
             READER_ERR err = reader.SetInvMultiEmbeddedData(bankdatas, accpwd);
-            LogUtils.e("setAttachedData:"+err.toString());
+            LogUtils.e("setAttachedData:" + err.toString());
         }
     }
 
     public int setCarrier(int value) {
-        if(type ==3){
+
+        if (type == 3) {
             return RrReader.setCarrier(value);
 
         }
         return -1;
     }
 
+    //isOpen true    开载波，false关载波
+    //power 功率      33传3300
+    //fre   频点      输入载波频点：例如：915250
+    public READER_ERR setCarrier(boolean isOpen, int power, int fre) {
+        if (type == 1) {
+            if (isOpen) {
+                try {
+                    Reader.CustomParam_ST cpst = reader.new CustomParam_ST();
+
+                    cpst.ParamName = "0";
+                    byte[] vals = new byte[9];
+                    int p = 0;
+                    vals[p++] = 0x01;
+                    vals[p++] = 0x01;
+                    vals[p++] = (byte) ant;
+                    vals[p++] = (byte) ((power & 0xff00) >> 8);
+                    vals[p++] = (byte) (power & 0x00ff);
+                    vals[p++] = (byte) ((fre & 0xff000000) >> 24);
+                    vals[p++] = (byte) ((fre & 0x00ff0000) >> 16);
+                    vals[p++] = (byte) ((fre & 0x0000ff00) >> 8);
+                    vals[p++] = (byte) (fre & 0x000000ff);
+                    cpst.ParamVal = vals;
+                    return reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpst);
+
+                } catch (Exception ex) {
+                    return null;
+                }
+            } else {
+                try {
+                    Reader.CustomParam_ST cpst = reader.new CustomParam_ST();
+
+                    cpst.ParamName = "0";
+                    byte[] vals = new byte[9];
+                    int p = 0;
+                    vals[p++] = 0x01;
+                    vals[p++] = 0x00;
+                    vals[p++] = (byte) ant;
+                    vals[p++] = (byte) ((power & 0xff00) >> 8);
+                    vals[p++] = (byte) (power & 0x00ff);
+                    vals[p++] = (byte) ((fre & 0xff000000) >> 24);
+                    vals[p++] = (byte) ((fre & 0x00ff0000) >> 16);
+                    vals[p++] = (byte) ((fre & 0x0000ff00) >> 8);
+                    vals[p++] = (byte) (fre & 0x000000ff);
+                    cpst.ParamVal = vals;
+                    return reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpst);
+
+                } catch (Exception ex) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
 }
+

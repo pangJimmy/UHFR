@@ -11,7 +11,7 @@ android {
         versionCode 19
         versionName "3.6.2"
         ndk {
-            abiFilters 'armeabi-v7a', 'x86', 'x86_64'
+            abiFilters 'armeabi-v7a','arm64-v8a', 'x86', 'x86_64'
         }
     }
 
@@ -91,7 +91,7 @@ sync_aars.dependsOn(cleanJarDir)
 task aMakeJar(type: Jar) {
     println("makeJar")
     //指定生成的jar名
-    baseName 'UHF67_v3.8.2'
+    baseName 'UHF67_v3.8.3'
     //从哪里打包class文件
     from "build/intermediates/javac/debug/classes/"
     configurations.tempConfig.findAll {
@@ -108,12 +108,12 @@ task aMakeJar(type: Jar) {
     exclude('/com/handheld/uhfr/BuildConfig.class')
     exclude('/com/handheld/uhfr/UHFRManagerBank.class')
     exclude('/com/handheld/uhfrdemo')
-//    exclude('/cn')
+    exclude('/cn')
     //此段代码将相关信息写到META-INF文件中的MANEFEST.MF文件
     manifest {
         attributes(
                 'Implementation-Title': "uhfr",
-                'Implementation-Version': "3.0",
+                'Implementation-Version': "3.8.3",
                 'Built-Date': new Date().getDateTimeString(),
                 'Built-With':
                         "gradle-${project.getGradle().getGradleVersion()},groovy-${GroovySystem.getVersion()}",
