@@ -3,10 +3,6 @@ package com.handheld.uhfr;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.util.Log;
-import android.util.LogPrinter;
-import android.widget.Toast;
-
-import com.apkfuns.logutils.LogUtils;
 import com.gg.reader.api.dal.GClient;
 import com.gg.reader.api.dal.HandlerTag6bLog;
 import com.gg.reader.api.dal.HandlerTag6bOver;
@@ -54,12 +50,9 @@ import com.gg.reader.api.protocol.gx.ParamEpcReadReserved;
 import com.gg.reader.api.protocol.gx.ParamEpcReadTid;
 import com.gg.reader.api.protocol.gx.ParamEpcReadUserdata;
 import com.gg.reader.api.protocol.gx.ParamFastId;
-import com.gg.reader.api.protocol.gx.ParamGbReadUserdata;
 import com.gg.reader.api.utils.HexUtils;
 import com.rfid.trans.ReadTag;
-import com.rfid.trans.ReaderHelp;
 import com.rfid.trans.TagCallback;
-import com.uhf.api.cls.BackReadOption;
 import com.uhf.api.cls.InvEmbeddedBankData;
 import com.uhf.api.cls.R2000_calibration.TagLED_DATA;
 import com.uhf.api.cls.ReadListener;
@@ -91,8 +84,6 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Objects;
 
-import cn.com.example.rfid.driver.Driver;
-import cn.com.example.rfid.driver.RfidDriver;
 import cn.pda.serialport.SerialPort;
 import cn.pda.serialport.Tools;
 
@@ -115,7 +106,6 @@ public class UHFRManager {
     public static final Object waitLock = new Object();
     private static final MsgCallback callback = new MsgCallback();
     //6106
-    private static SerialPort sSerialPort;
     private static final String tag = "UHFRManager";
     private static Reader reader;
     private final int[] ants = new int[]{1};
@@ -126,9 +116,6 @@ public class UHFRManager {
     //停顿时间比
     String[] spiperst = {"0%", "5%", "10%", "15%", "20%", "25%", "30%", "35%",
             "40%", "45%", "50%"};
-
-    //锐迪
-    private static Driver driver;
 
 //    private static boolean is6108 = true;
     /**
@@ -201,10 +188,6 @@ public class UHFRManager {
                 reader.CloseReader();
             }
             reader = null;
-        } else if (type == 2) {
-            //锐迪，未完成
-            logPrint("zeng-", "type2-close");
-            driver.Close_Com();
         } else if (type == 3) {
             int disconnectResult = RrReader.rrlib.DisConnect();
             if (disconnectResult == 0) {
@@ -254,10 +237,6 @@ public class UHFRManager {
             }
             return version;
 
-        } else if (type == 2) {
-            //锐迪，未完成
-            version = "1.1.03";
-            return version;
         } else if (type == 3) {
             String str = RrReader.getVersion();
             version = String.format("1.1.04.%s", str);
@@ -421,21 +400,6 @@ public class UHFRManager {
                 }
             }
             reader.CloseReader();
-        } else if (type == 2) {
-            //锐迪
-            driver = new RfidDriver();
-            if (driver != null) {
-
-                int Status = 0;
-                Status = driver.initRFID("/dev/ttyMT1", 115200);
-                logPrint("zeng-", "init+status:" + Status);
-                if (-1000 == Status) {
-
-                } else {
-                    return true;
-                }
-            } else {
-            }
         } else if (type == 3) {
             int result = RrReader.connect("/dev/ttyMT1", 115200, DEBUG ? 1 : 0);
             if (result == 0) {
@@ -622,21 +586,6 @@ public class UHFRManager {
 
             // option = 16, 多标签手持机模式(不含附加数据)
 //        return reader.AsyncStartReading(ants, 1, 16);
-        } else if (type == 2) {
-            //锐迪，未完成
-//            logPrint("zeng-", "moshi:" + driver.Inventory_Model_Get());
-//
-//            String val = driver.GetGen2Para();
-//            logPrint("zeng-", val);
-            // 1. 设置模式4, 不掉电保存
-            driver.Inventory_Model_Set(0, true);
-            int Status = driver.readMore(0);
-            if (Status != 1020) {
-                return READER_ERR.MT_CMD_FAILED_ERR;
-            } else {
-
-                return READER_ERR.MT_OK_ERR;
-            }
         } else if (type == 3) {
             synchronized (rrTagList) {
                 rrTagList.clear();
@@ -709,16 +658,6 @@ public class UHFRManager {
                 return reader.AsyncStartReading(ants, 1, option);
             }
             return reader.AsyncStartReading(ants, 1, option);
-        } else if (type == 2) {
-            //锐迪，未完成
-            setGen2("0140FD5300000000");
-            int Status = driver.readMore(0);
-            if (Status != 1020) {
-                return READER_ERR.MT_CMD_FAILED_ERR;
-            } else {
-
-                return READER_ERR.MT_OK_ERR;
-            }
         } else if (type == 3) {
             return asyncStartReading();
         }
@@ -747,11 +686,6 @@ public class UHFRManager {
                 return reader.AsyncStopReading();
             }
 
-        } else if (type == 2) {
-            //锐迪，未完成
-            driver.stopRead();
-            logPrint("zeng-", "cont:" + count);
-            return READER_ERR.MT_OK_ERR;
         } else if (type == 3) {
             RrReader.stopRead();
             return READER_ERR.MT_OK_ERR;
@@ -801,11 +735,6 @@ public class UHFRManager {
                 return false;
             }
             return true;
-        } else if (type == 2) {
-//锐迪未完成//
-            return true;
-
-
         } else if (type == 3) {
 //            RrReader.setInvMask(fdata, fbank, fstartaddr, matching);
             return true;
@@ -1254,26 +1183,6 @@ public class UHFRManager {
 //            }
 
 
-        } else if (type == 2) {
-            String s = driver.GetBufData();
-            logPrint("zeng-", "count = " + count + ", s:getBufData:" + s);
-            if (s != null && !s.equals("null")) {
-                list.add(getBuf(s));
-//                count++;
-//                getBuf(s,taginfo);
-
-            }
-//            int count = 5 ;
-//            while (count > 0) {
-//
-//                count--;
-//                try {
-//                    Thread.sleep(10);
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-            //锐迪，未完成
         } else if (type == 3) {
             return formatRrTagList();
         }
@@ -1401,19 +1310,6 @@ public class UHFRManager {
             }
 
             return list;
-        } else if (type == 2) {
-//锐迪未完成//
-            List<TAGINFO> list = new ArrayList<>();
-            TAGINFO taginfo = new Reader().new TAGINFO();
-            String s = driver.SingleRead(10).trim();
-            if (!s.equals("获取失败") && !s.equals("null")) {
-                logPrint("zeng-", "s2:" + s);
-                taginfo.EpcId = Tools.HexString2Bytes(s);
-                taginfo.Epclen = (short) taginfo.EpcId.length;
-                list.add(taginfo);
-            }
-            return list;
-
         } else if (type == 3) {
             synchronized (rrTagList) {
                 rrTagList.clear();
@@ -1951,7 +1847,6 @@ public class UHFRManager {
             Reader.EmbededData_ST edst = reader.new EmbededData_ST();
             edst.bank = bank;
             edst.startaddr = startaddr;
-            LogUtils.e("zneg-:" + bytecnt);
             edst.bytecnt = bytecnt;
             edst.accesspwd = accesspwd;
             reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
@@ -2100,20 +1995,6 @@ public class UHFRManager {
                 logPrint("getTagData, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             }
             return er;
-        } else if (type == 2) {
-            //锐迪，未完成
-
-            String Status;
-            Status = driver.Read_Data_Tag(Tools.Bytes2HexString(password, password.length),
-                    0, 0, 0, "", mbank, startaddr, len);
-
-            if (Status != null) {
-                rdata = Tools.HexString2Bytes(Status);
-                logPrint("zeng-", "status:" + Status);
-                return READER_ERR.MT_OK_ERR;
-            } else {
-                return READER_ERR.MT_CMD_FAILED_ERR;
-            }
         } else if (type == 3) {
 //            RrReader.rrlib.ClearMaskList();
             int readDataG2Result = RrReader.readG2Data(mbank, startaddr, len, password, timeout, new byte[0], 1, 0, true, rdata);
@@ -2213,27 +2094,6 @@ public class UHFRManager {
                 logPrint("getTagDataByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
                 return null;
             }
-        } else if (type == 2) {
-            //锐迪，未完成
-            String Status;
-            Status = driver.Read_Data_Tag(Tools.Bytes2HexString(password, password.length),
-                    fbank,
-                    fstartaddr * 16,
-                    Tools.Bytes2HexString(fdata, fdata.length).length(),
-                    Tools.Bytes2HexString(fdata, fdata.length),
-                    mbank, startaddr, len);
-            logPrint("zeng-", "fbnk:" + fbank);
-            logPrint("zeng-", "fstartaddr:" + fstartaddr);
-            logPrint("zeng-", "Tools.Bytes2HexString(fdata, fdata.length).length():" + Tools.Bytes2HexString(fdata, fdata.length).length());
-            logPrint("zeng-", "Tools.Bytes2HexString(fdata, fdata.length):" + Tools.Bytes2HexString(fdata, fdata.length));
-            logPrint("zeng-", "mbank:" + mbank);
-            logPrint("zeng-", "len:" + len);
-            logPrint("zeng-getTagDataByFilter", "status:" + Status);
-            if (Status != null) {
-                return Tools.HexString2Bytes(Status);
-            } else {
-                return null;
-            }
         } else if (type == 3) {
             byte[] rdata = new byte[len * 2];
             int readDataG2Result = RrReader.readG2Data(mbank, startaddr, len, password, timeout, fdata, fbank, fstartaddr, matching, rdata);
@@ -2290,19 +2150,6 @@ public class UHFRManager {
                 logPrint("writeTagData, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             }
             return er;
-        } else if (type == 2) {
-            //锐迪，未完成
-            int Status = 0;
-            Status = driver.Write_Data_Tag(Tools.Bytes2HexString(accesspasswd, accesspasswd.length),
-                    0,
-                    0,
-                    0,
-                    "",
-                    mbank,
-                    startaddress,
-                    Tools.Bytes2HexString(data, data.length).length() / 4,
-                    Tools.Bytes2HexString(data, data.length));
-            return Status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
         } else if (type == 3) {
 //            RrReader.rrlib.ClearMaskList();
             int writeDataG2Result = RrReader.writeG2Data(mbank, startaddress, data, datalen, accesspasswd, timeout, new byte[0], 1, 0, true);
@@ -2380,19 +2227,6 @@ public class UHFRManager {
                 logPrint("writeTagDataByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             }
             return er;
-        } else if (type == 2) {
-            //锐迪，未完成
-            int Status = 0;
-            Status = driver.Write_Data_Tag(Tools.Bytes2HexString(accesspasswd, accesspasswd.length),
-                    fbank,
-                    fstartaddr * 16,
-                    Tools.Bytes2HexString(fdata, fdata.length).length() / 4,
-                    Tools.Bytes2HexString(fdata, fdata.length),
-                    mbank,
-                    startaddress,
-                    Tools.Bytes2HexString(data, data.length).length() / 4,
-                    Tools.Bytes2HexString(data, data.length));
-            return Status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
         } else if (type == 3) {
             int writeG2DataByFilterResult = RrReader.writeG2Data(mbank, startaddress, data, datalen, accesspasswd, timeout, fdata, fbank, fstartaddr, matching);
             if (writeG2DataByFilterResult == 0) {
@@ -2506,10 +2340,6 @@ public class UHFRManager {
             }
             return er;
 
-        } else if (type == 2) {
-            //锐迪未完成//
-
-            return READER_ERR.MT_CMD_FAILED_ERR;
         } else if (type == 3) {
             int writeTagEpcResult = RrReader.writeTagEpc(data, accesspwd, timeout, fdata, fbank, fstartaddr, matching);
             if (writeTagEpcResult == 0) {
@@ -2575,12 +2405,6 @@ public class UHFRManager {
                 logPrint("lockTag, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             }
             return er;
-        } else if (type == 2) {
-            //锐迪，未完成
-            int Status = 0;
-            Status = driver.Lock_Tag_Data(Tools.Bytes2HexString(accesspasswd, accesspasswd.length), 0, 0, 0, "", lockobject.value(), locktype.value());
-            return Status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
-
         } else if (type == 3) {
             int lockTagResult = RrReader.lockTag(lockobject, locktype, accesspasswd, timeout, new byte[0], 1, 0, true);
             if (lockTagResult == 0) {
@@ -2675,13 +2499,6 @@ public class UHFRManager {
                 logPrint("lockTagByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             }
             return er;
-        } else if (type == 2) {
-            //锐迪，未完成
-            int Status = 0;
-            Status = driver.Lock_Tag_Data(Tools.Bytes2HexString(accesspasswd, accesspasswd.length), fbank, fstartaddr, (Tools.Bytes2HexString(fdata, fdata.length).length() / 4), Tools.Bytes2HexString(fdata, fdata.length), lockobject.value(), locktype.value());
-            return Status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
-
-
         } else if (type == 3) {
             int lockTagResult = RrReader.lockTag(lockobject, locktype, accesspasswd, timeout, fdata, fbank, fstartaddr, true);
             if (lockTagResult == 0) {
@@ -2721,12 +2538,6 @@ public class UHFRManager {
                 logPrint("killTag, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             }
             return er;
-        } else if (type == 2) {
-            //锐迪，未完成
-            int status = driver.Kill_Tag(Tools.Bytes2HexString(killpasswd, killpasswd.length), 0, 0, 0, "");
-
-            return status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
-
         } else if (type == 3) {
             int killG2Result = RrReader.killTag(killpasswd, timeout, new byte[0], 1, 0, true);
             if (killG2Result == 0) {
@@ -2794,14 +2605,6 @@ public class UHFRManager {
                 logPrint("killTagByFilter, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
             }
             return er;
-        } else if (type == 2) {
-            //锐迪，未完成
-            String sData = Tools.Bytes2HexString(fdata, fdata.length);
-            int status = driver.Kill_Tag(Tools.Bytes2HexString(killpasswd, killpasswd.length), fbank, fstartaddr, (sData.length() / 4), sData);
-
-            return status == 0 ? READER_ERR.MT_OK_ERR : READER_ERR.MT_CMD_FAILED_ERR;
-
-
         } else if (type == 3) {
             int killG2Result = RrReader.killTag(killpasswd, timeout, fdata, fbank, fstartaddr, matching);
             if (killG2Result == 0) {
@@ -2844,37 +2647,6 @@ public class UHFRManager {
             }
         } else if (type == 1) {
             return reader.ParamSet(Mtr_Param.MTR_PARAM_FREQUENCY_REGION, region);
-        } else if (type == 2) {
-            //锐迪，未完成
-            int value = 0;
-            logPrint("zeng-", "value:" + region.value());
-            switch (region.value()) {
-                case 6:
-                    value = 0x01;//GB_920-925
-                    break;
-                case 10:
-                    value = 0x02;//GB_800
-                    break;
-                case 1:
-                    value = 0x08;//fcc_902_928
-                    break;
-                case 8:
-                    value = 0x04;//eu_902_928
-                    break;
-                default:
-                    value = 0;//fcc_902_928
-                    break;
-            }
-            if (value == 0) {
-                return READER_ERR.MT_CMD_FAILED_ERR;
-            } else {
-                int status = driver.SetRegion(value);
-                if (-1000 == status || -1020 == status || 0 == status) {
-                    return READER_ERR.MT_CMD_FAILED_ERR;
-                } else {
-                    return setPower(rPower, wPower);
-                }
-            }
         } else if (type == 3) {
             int setRegionResult = RrReader.setRegion(region);
             if (setRegionResult == 0) {
@@ -2914,30 +2686,6 @@ public class UHFRManager {
             }
             logPrint("getRegion, ParamGet MTR_PARAM_FREQUENCY_REGION result: " + er.toString());
             return null;
-        } else if (type == 2) {
-            //锐迪，未完成
-            String sum;
-            sum = driver.getRegion();
-            if (sum.equals("-1000") || sum.equals("-1020")) {
-                return null;
-            } else {
-                String text1 = sum.substring(2, 4);
-                int i = Integer.parseInt(text1, 16);
-                switch (i) {
-                    case 0x01:
-                        return Region_Conf.valueOf(6);
-                    case 0x02:
-                        return Region_Conf.valueOf(10);
-                    case 0x04:
-//                        spinner_region.setSelection(2);
-                        return Region_Conf.valueOf(8);
-
-                    case 0x08:
-                        return Region_Conf.valueOf(1);
-                    default:
-                        return null;
-                }
-            }
         } else if (type == 3) {
             byte[] band = new byte[1];
             int result = RrReader.rrlib.GetReaderInformation(new byte[2], new byte[1], band, new byte[1], new byte[1]);
@@ -2976,25 +2724,8 @@ public class UHFRManager {
             }
             logPrint("getFrequencyPoints, ParamGet MTR_PARAM_FREQUENCY_HOPTABLE result: " + er.toString());
             return null;
-        } else {
-            //锐迪，未完成
-            String sum;
-            sum = driver.GetFreqTable();
-            if (sum.equals("-1000") || sum.equals("-1020")) {
-                return null;
-            } else {
-                int index = sum.indexOf("}");
-                String tmp = sum.substring(index + 1);
-                String[] tmps = tmp.split("\\,");
-                int number[] = new int[tmps.length];
-                for (int i = 0; i < tmps.length; i++) {
-                    number[i] = Integer.parseInt(tmps[i]); // error here
-
-                }
-                return number;
-            }
-
         }
+        return null;
     }
 
     //设置频点，已完成，待测试
@@ -3016,16 +2747,6 @@ public class UHFRManager {
             hdst.lenhtb = frequencyPoints.length;
             hdst.htb = frequencyPoints;
             return reader.ParamSet(Mtr_Param.MTR_PARAM_FREQUENCY_HOPTABLE, hdst);
-        } else if (type == 2) {
-            //锐迪，未完成
-            int result = 0, num = 0;
-            result = driver.SetFreqTable(1, frequencyPoints.length, frequencyPoints);
-            if (result == -1000 || result == -1020) {
-                return READER_ERR.MT_CMD_FAILED_ERR;
-            } else {
-                return READER_ERR.MT_OK_ERR;
-
-            }
         }
         return READER_ERR.MT_CMD_FAILED_ERR;
     }
@@ -3062,18 +2783,6 @@ public class UHFRManager {
             antPower.writePower = (short) ((short) writePower * 100);
             antPowerConf.Powers[0] = antPower;
             return reader.ParamSet(Mtr_Param.MTR_PARAM_RF_ANTPOWER, antPowerConf);
-        } else if (type == 2) {
-            //锐迪，未完成
-            logPrint("zeng-", "r:" + readPower + ";w:" + writePower);
-            int status = driver.SetTxPower(readPower, writePower, 0, 0);
-            logPrint("zeng-", "setpowe:" + status);
-
-            if (-1000 == status || -1020 == status || 0 == status) {
-                return READER_ERR.MT_CMD_FAILED_ERR;
-            } else {
-                return READER_ERR.MT_OK_ERR;
-            }
-
         } else if (type == 3) {
             int setReadWritePowerResult = RrReader.setReadWritePower(readPower, writePower);
             if (setReadWritePowerResult == 0) {
@@ -3109,29 +2818,6 @@ public class UHFRManager {
                 logPrint("getPower, ParamGet MTR_PARAM_RF_ANTPOWER result: " + er.toString());
                 return null;
             }
-        } else if (type == 2) {
-            //锐迪，未完成
-            if (driver != null) {
-                String text = driver.GetTxPower();
-                logPrint("zeng-", "text:" + text);
-                if (text.equals("-1020") || text.equals("-1000")) {
-                    return null;
-                }
-
-
-                String[] PowArrary = text.split(",");
-                String text1 = PowArrary[0].substring(6);
-                String text2 = PowArrary[1].substring(0, PowArrary.length);
-                int ri = Integer.parseInt(text1, 10);
-                int wi = Integer.parseInt(text2, 10);
-
-                int[] powers = new int[2];
-                powers[0] = ri;
-                powers[1] = wi;
-                return powers;
-            } else {
-                return null;
-            }
         } else if (type == 3) {
             return RrReader.getReadWritePower();
         }
@@ -3155,59 +2841,12 @@ public class UHFRManager {
                     MsgBaseStop stop = new MsgBaseStop();
                     client.sendSynMsg(stop);
                     taginfos = formatYueheData();
-//                    if (taginfos.size() > 0) {
-//                        //返回小数点后2位
-////                        return (taginfos.get(0).Temperature);
-//                    }
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
             return taginfos;
         } else if (type == 1) {
-//            double temp = -255 ;
-//            READER_ERR er = READER_ERR.MT_OK_ERR;
-//            R2000_calibration.META_DATA rmeta=new R2000_calibration().new META_DATA();
-//            rmeta.IsReadCnt=true;
-//            rmeta.IsRSSI=true;
-//            rmeta.IsAntennaID=true;
-//            rmeta.IsFrequency=true;
-//            rmeta.IsTimestamp=true;
-//            rmeta.IsRFU=true;
-//            rmeta.IsPro=true;
-//            rmeta.IsEmdData=true;
-//            R2000_calibration.Tagtemperture_DATA tagtemp=new R2000_calibration().new Tagtemperture_DATA();
-//            // ant = 1, bank = 3, adrhex = 127, blkcnt = 1, readtimeout = 1000, selwait = 0, readwait = 100
-//            int ant = 1 ;
-//            int b = 3 ;
-//            char memback = (char) b;
-//            int addr = 127 ;
-//            int wordCnt = 1 ;
-//            int timeout =1000  ;
-//            int timeselwait = 0 ;
-//            int timereadwait = 100 ;
-//            reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_FILTER, null);
-//            er = reader.ReadTagTemperature(ant,
-//                    memback, addr, wordCnt,
-//                    timeout,  timeselwait, timereadwait, rmeta.getMetaflag(), accesspassword, tagtemp);
-//            if(er==READER_ERR.MT_OK_ERR){
-//                String tempet = "";
-//                if ((tagtemp.Data()[0] & 0x80) == 0)
-//                {
-//                    tempet=(tagtemp.Data()[0]&0xff)-30 + "." + (tagtemp.Data()[1]&0xff) * 100 / 255;
-//                }
-//                else
-//                {
-//                    tagtemp.Data()[0] = (byte)(~tagtemp.Data()[0]);
-//                    tagtemp.Data()[1] = (byte)(~tagtemp.Data()[1] + 1);
-//                    tempet = "-"+((tagtemp.Data()[0]&0xff)-30) + "." + (tagtemp.Data()[1]&0xff) * 100 / 255;
-//                    temp = Integer.valueOf(tempet);
-//                }
-//
-//            }
-            return null;
-        } else if (type == 2) {
-            //锐迪，未完成
             return null;
         } else if (type == 3) {
             taginfos = RrReader.measureYueHeTemp();
@@ -3233,10 +2872,6 @@ public class UHFRManager {
                     MsgBaseStop stop = new MsgBaseStop();
                     client.sendSynMsg(stop);
                     taginfos = formatData();
-//                    if (taginfos.size() > 0) {
-//                        //返回小数点后2位
-//                        return (taginfos.get(0).Temperature);
-//                    }
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -3246,17 +2881,7 @@ public class UHFRManager {
             List<TAGINFO> list = tagEpcOtherInventoryByTimer((short) 50, 3, 127, 2, new byte[4]);
             if (list != null && !list.isEmpty()) {
                 taginfos = handleYilian(type, list);
-//                Log.e("pang", "list is not null");
-//                for (int i = 0; i < list.size(); i++) {
-//                    TAGINFO tag = list.get(i);
-//                    Log.e("pang", "EPC:" + Tools.Bytes2HexString(tag.EpcId, tag.EpcId.length));
-//                    if (tag.EmbededData != null) {
-//                        Log.e("pang", "EmbededData:" + Tools.Bytes2HexString(tag.EmbededData, tag.EmbededData.length));
-//                    }
-//                }
             }
-        } else if (type == 2) {
-
         }
         return taginfos;
     }
@@ -3333,36 +2958,6 @@ public class UHFRManager {
             } catch (Exception var4) {
                 return false;
             }
-        } else if (type == 2) {
-            //锐迪，未完成
-            int[] gen2 = new int[10];
-
-            String val = driver.GetGen2Para();
-
-            if (val.equals("-1000") || val.equals("-1020")) {
-                return false;
-            } else {
-                for (int i = 0; i < 8; i++) {
-                    // 获取参数
-                    gen2[i] = Integer.parseInt(val.substring(2 * i, 2 * (i + 1)), 16);
-                }
-                if (isMulti) {
-                    gen2[3] = gen2[3] & 0xCF;
-                    gen2[3] = gen2[3] + (1 << 4);
-                } else {
-                    // session0
-                    gen2[3] = gen2[3] & 0xCF;
-                    gen2[3] = gen2[3] + (0 << 4);
-                }
-                int status = 0;
-                status = driver.SetGen2Para(0, gen2);
-
-                if (-1000 == status || -1020 == status || 0 == status) {
-                    return false;
-                } else {
-                    return true;
-                }
-            }
         } else if (type == 3) {
             if (isMulti) {
                 return true;
@@ -3398,30 +2993,6 @@ public class UHFRManager {
             } catch (Exception var4) {
                 return false;
             }
-        } else if (type == 2) {
-            //锐迪，未完成
-            int[] gen2 = new int[10];
-
-            String val = driver.GetGen2Para();
-
-            if (val.equals("-1000") || val.equals("-1020")) {
-                return false;
-            } else {
-                for (int i = 0; i < 8; i++) {
-                    // 获取参数
-                    gen2[i] = Integer.parseInt(val.substring(2 * i, 2 * (i + 1)), 16);
-                }
-                gen2[3] = gen2[3] & 0xCF;
-                gen2[3] = gen2[3] + (session << 4);
-                int status = 0;
-                status = driver.SetGen2Para(0, gen2);
-
-                if (-1000 == status || -1020 == status || 0 == status) {
-                    return false;
-                } else {
-                    return true;
-                }
-            }
         } else if (type == 3) {
             RrReader.setSession(session);
             return true;
@@ -3449,17 +3020,6 @@ public class UHFRManager {
                 logPrint("pang", "getGen2session = " + val[0]);
                 return val[0];
             }
-        } else if (type == 2) {
-            //锐迪，未完成
-            String val = driver.GetGen2Para();
-            if (val.equals("-1000") || val.equals("-1020")) {
-                return -1;
-            } else {
-                int tmp = Integer.parseInt(val.substring(6, 7), 16);
-                tmp = (tmp & 0x03);
-                return tmp;
-            }
-
         } else if (type == 3) {
             return RrReader.getSession();
         }
@@ -3488,9 +3048,6 @@ public class UHFRManager {
 //            }
             Q = qvaule;
             flag = true;
-        } else if (type == 2) {
-            //锐迪，未完成
-
         } else if (type == 3) {
             RrReader.setQ(qvaule);
             return true;
@@ -3516,9 +3073,6 @@ public class UHFRManager {
 //                value = val[0];
 //            }
             value = Q;
-        } else if (type == 2) {
-            //锐迪，未完成
-
         } else if (type == 3) {
             return RrReader.getQ();
         }
@@ -3541,19 +3095,6 @@ public class UHFRManager {
             if (er == READER_ERR.MT_OK_ERR) {
                 target = val[0];
             }
-        } else if (type == 2) {
-            //锐迪，未完成
-            String val = driver.GetGen2Para();
-            logPrint("zeng-", val);
-            if (val.equals("-1000") || val.equals("-1020")) {
-                target = -1;
-            } else {
-
-                target = Integer.parseInt(val.substring(7, 8), 16);
-                target = (target >> 3) & 0x01;
-
-            }
-
         } else if (type == 3) {
             return RrReader.rrlib.GetInventoryPatameter().Target;
         }
@@ -3576,34 +3117,6 @@ public class UHFRManager {
             READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_POTL_GEN2_TARGET, val);
             if (er == READER_ERR.MT_OK_ERR) {
                 flag = true;
-            }
-        } else if (type == 2) {
-            //锐迪，未完成
-            int[] gen2 = new int[10];
-
-            String val = driver.GetGen2Para();
-
-            if (val.equals("-1000") || val.equals("-1020")) {
-                return false;
-            } else {
-                for (int i = 0; i < 8; i++) {
-                    // 获取参数
-                    gen2[i] = Integer.parseInt(val.substring(2 * i, 2 * (i + 1)), 16);
-                }
-//                gen2[3] = gen2[3] & 0xCF;
-//                gen2[3] = gen2[3] + (session << 4);
-
-                gen2[3] = gen2[3] & 0xF7;
-                gen2[3] = gen2[3] + (target << 3);
-
-                int status = 0;
-                status = driver.SetGen2Para(0, gen2);
-
-                if (-1000 == status || -1020 == status || 0 == status) {
-                    return false;
-                } else {
-                    return true;
-                }
             }
         } else if (type == 3) {
             RrReader.setTarget(target);
@@ -3655,19 +3168,6 @@ public class UHFRManager {
                 cpara.ParamVal = new byte[1];
                 READER_ERR ret = reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpara);
                 return ret == READER_ERR.MT_OK_ERR;
-            }
-        } else if (type == 2) {
-            //锐迪，未完成
-            int status = 0;
-            if (isOpenFastTiD) {
-                status = driver.SetFastIDStatus(1);            // 开启
-            } else {
-                status = driver.SetFastIDStatus(0);            // 关闭
-            }
-            if (-1000 == status || 0 == status || -1020 == status) {
-                return false;
-            } else {
-                return true;
             }
         } else if (type == 3) {
             RrReader.setFastId(isOpenFastTiD);
@@ -3800,45 +3300,9 @@ public class UHFRManager {
                 tag6bList.notify();
             }
         };
-//        client.onTagGJbOver = new HandlerTagGJbOver() {
-//            public void log(String readerName, LogBaseGJbInfo info) {
-////                handlerStop.sendEmptyMessage(new Message().what = 1);
-//                synchronized (gjbepcList) {
-//                    gjbepcList.notify();
-//                }
-//            }
-//        };
-    }
-
-    public boolean setGen2(String val) {
-        int[] gen2 = new int[10];
-        for (int i = 0; i < 8; i++) {
-            // 获取参数
-            gen2[i] = Integer.parseInt(val.substring(2 * i, 2 * (i + 1)), 16);
-        }
-
-        // 修改session
-        gen2[3] = gen2[3] & 0xCF;
-        int pos = 2;
-        gen2[3] = gen2[3] + (pos << 4);
-
-        // 修改Target
-        gen2[3] = gen2[3] & 0xF7;
-        pos = 0;
-        gen2[3] = gen2[3] + (pos << 3);
-
-        int status = 0;
-        status = driver.SetGen2Para(0, gen2);            // 掉电保存参数
-        if (status != 0 || status != -100 || status != -1020) {
-            if (driver.Inventory_Model_Set(1, false)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static long lastEnterTime = SystemClock.elapsedRealtime();
-
     public static class MsgCallback implements TagCallback {
 
         @Override
@@ -4031,7 +3495,6 @@ public class UHFRManager {
             bankdatas.add(new InvEmbeddedBankData((byte) 3, 0, (byte) 2));
             byte[] accpwd = new byte[]{0x00, 0x00, 0x00, 0x00};
             READER_ERR err = reader.SetInvMultiEmbeddedData(bankdatas, accpwd);
-            LogUtils.e("setAttachedData:" + err.toString());
         }
     }
 

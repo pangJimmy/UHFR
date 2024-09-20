@@ -5,11 +5,11 @@ android {
 
     defaultConfig {
         applicationId "com.handheld.uhfr"
-        minSdkVersion 24
+        minSdkVersion 19
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 28
         versionCode 19
-        versionName "3.6.2"
+        versionName "3.6.5"
         ndk {
             abiFilters 'armeabi-v7a','arm64-v8a', 'x86', 'x86_64'
         }
@@ -46,10 +46,7 @@ dependencies {
     implementation 'com.android.support:support-v4:28.0.0'
     implementation files('libs/jxl.jar')
     implementation files('libs/reader(1).jar')
-    implementation files('libs/DeviceAPIver20150204.jar')
-    implementation files('libs/logutil-1.5.1.1.jar')
     implementation fileTree(include: ['*.aar'], dir: 'libs')
-    implementation files('libs\\App_Demo_API.jar')
     implementation files('libs\\ModuleAPI_J.jar')
     customConfig fileTree(include: ['*.aar'], dir: 'libs')
     tempConfig fileTree(dest_dir)
@@ -65,33 +62,11 @@ task cleanJarDir(type: Delete) {
     }
 }
 
-task sync_aars(type: Copy) {
-    //把所有依赖的.aar库里包含的classes.jar都拷贝到build/aar/libs下，并重命名以不被覆盖
-    def jar_name
-    def aar_path
-    configurations.customConfig.findAll {
-        it.getName().endsWith(".aar")
-    }.collect {
-        aar_path = it.getPath()
-        jar_name = "libs/" + it.getName().replace(".aar", ".jar")
-        copy {
-            from zipTree(aar_path)
-            into dest_dir
-            include "**/*"
-            rename 'classes.jar', jar_name
-        }
-        println("copy " + aar_path)
-    }
-    println("sync_aars")
-}
-sync_aars.mustRunAfter(cleanJarDir)
-sync_aars.dependsOn(cleanJarDir)
-
 //打包任务
 task aMakeJar(type: Jar) {
     println("makeJar")
     //指定生成的jar名
-    baseName 'UHF67_v3.8.3'
+    baseName 'UHF67_v3.8.5'
     //从哪里打包class文件
     from "build/intermediates/javac/debug/classes/"
     configurations.tempConfig.findAll {
@@ -108,7 +83,10 @@ task aMakeJar(type: Jar) {
     exclude('/com/handheld/uhfr/BuildConfig.class')
     exclude('/com/handheld/uhfr/UHFRManagerBank.class')
     exclude('/com/handheld/uhfrdemo')
-    exclude('/cn')
+    exclude('/cn/pda/serialport')
+    exclude('/cn/pda/serialport/SerialPort.class')
+    exclude('/cn/pda/serialport/Tools.class')
+
     //此段代码将相关信息写到META-INF文件中的MANEFEST.MF文件
     manifest {
         attributes(
@@ -121,5 +99,5 @@ task aMakeJar(type: Jar) {
                         'Java ' + System.getProperty('java.version') + ' (' + System.getProperty('java.vendor') + ')')
     }
 }
-aMakeJar.mustRunAfter(sync_aars)
-aMakeJar.dependsOn(sync_aars)
+//aMakeJar.mustRunAfter(sync_aars)
+//aMakeJar.dependsOn(sync_aars)
