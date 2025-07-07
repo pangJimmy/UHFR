@@ -441,6 +441,17 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             showToast(getActivity().getString(R.string.connection_failed));
             return;
         }
+        // 如果要测试标签匹配，将下面变量的值置为true
+        boolean toTagMatchTest = false;
+        if (toTagMatchTest) {
+            MainActivity.mUhfrManager.MatchingTag(1000, "00000000",
+                    1, 2, 8, "0002000000000001A32E200000000007",
+                    0, 4, 1,
+                    1, 2, 0, "0001000000000001A32E200000000002",
+                    1, 32, 1, Tools.HexString2Bytes("4040"));
+            byte[] matchData = {(byte) 0x40, (byte) 0x40};
+            return;
+        }
 
         //MainActivity.mUhfrManager.setEMBEDEDATA(3,0,2, Tools.HexString2Bytes("00000000"));
         if (!isStart) {

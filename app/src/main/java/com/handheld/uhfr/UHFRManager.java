@@ -3205,10 +3205,10 @@ public class UHFRManager {
         client.onTagEpcLog = new HandlerTagEpcLog() {
             @Override
             public void log(String readerName, LogBaseEpcInfo info) {
-                //logPrint("onTagEpcLog", "info.getResult() = " + info.getResult());
-                if (DEBUG && info != null) {
-                    //logPrint("onTagEpcLog", "EPC: " + info.getEpc());
-                }
+                logPrint("onTagEpcLog", "info.getResult() = " + info.getResult());
+//                if (DEBUG && info != null) {
+//                }
+                logPrint("onTagEpcLog", "EPC: " + info.getEpc());
                 //info.getResult() == 4为LED标签盘点时返回
                 if (info.getResult() == 0 || info.getResult() == 4) {
                     synchronized (epcList) {
@@ -3218,7 +3218,7 @@ public class UHFRManager {
                         epcList.add(info);
                     }
                 }
-                //logPrint("onTagEpcLog", "epcList.size() = " + epcList.size());
+                logPrint("onTagEpcLog", "epcList.size() = " + epcList.size());
             }
         };
         client.onTagEpcOver = new HandlerTagEpcOver() {
@@ -3561,5 +3561,260 @@ public class UHFRManager {
         return null;
     }
 
+    public List<TAGINFO> getTagDataByFilterStay(int mbank, int startaddr, int len,
+                                                byte[] password, short timeout, byte[] fdata, int fbank,
+                                                int fstartaddr, boolean matching) {
+        if (type == 0) {
+            MsgBaseInventoryEpc msg = new MsgBaseInventoryEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            switch (mbank) {
+                case 0:
+                    msg.setReadReserved(new ParamEpcReadReserved(startaddr, len));
+                    break;
+                case 1:
+                    msg.setReadEpc(new ParamEpcReadEpc(startaddr, len));
+                    break;
+                case 2:
+                    msg.setReadTid(new ParamEpcReadTid(EnumG.ParamTidMode_Fixed, len));
+                    break;
+                case 3:
+                    msg.setReadUserdata(new ParamEpcReadUserdata(startaddr, len));
+                    break;
+            }
+            msg.setHexPassword(HexUtils.bytes2HexString(password));
+
+            if (matching) {
+                ParamEpcFilter filter = new ParamEpcFilter();
+                filter.setArea(fbank);
+                filter.setBitStart(fstartaddr * 16);//word
+                filter.setbData(fdata);
+                filter.setBitLength(fdata.length * 8);
+                msg.setFilter(filter);
+            }
+
+            if (fastId.getFastId() != 0) {
+                msg.setParamFastId(fastId);
+            }
+            msg.setStayCarrierWave(1);
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseInventoryEpc", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(timeout);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    logPrint("tagEpcOtherInventory", stop.getRtCode() + "");
+                    List<TAGINFO> taginfos;
+                    if (matching) {
+                        taginfos = formatData(mbank);
+                    } else {
+                        taginfos = formatExcludeData(mbank, fdata);
+                    }
+                    return taginfos;
+//                    if (!taginfos.isEmpty()) {
+//                        // 读到标签，不管有没有数据，代表标签有响应，返回不为null的数组
+//                        byte[] embededData = taginfos.get(0).EmbededData;
+//                        if (embededData == null) {
+//                            embededData = new byte[0];
+//                        }
+//                        return embededData;
+//                    } else {
+//                        return null;
+//                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+
+        }
+        return null;
+    }
+
+    public List<TAGINFO> getTagDataStay(int mbank, int startaddr, int len, byte[] password,
+                                        short timeout) {
+        if (type == 0) {
+            MsgBaseInventoryEpc msg = new MsgBaseInventoryEpc();
+            msg.setAntennaEnable(EnumG.AntennaNo_1);
+            msg.setInventoryMode(EnumG.InventoryMode_Inventory);
+            switch (mbank) {
+                case 0:
+                    msg.setReadReserved(new ParamEpcReadReserved(startaddr, len));
+                    break;
+                case 1:
+                    msg.setReadEpc(new ParamEpcReadEpc(startaddr, len));
+                    break;
+                case 2:
+                    msg.setReadTid(new ParamEpcReadTid(EnumG.ParamTidMode_Fixed, len));
+                    break;
+                case 3:
+                    msg.setReadUserdata(new ParamEpcReadUserdata(startaddr, len));
+                    break;
+            }
+            msg.setHexPassword(HexUtils.bytes2HexString(password));
+            if (fastId.getFastId() != 0) {
+                msg.setParamFastId(fastId);
+            }
+            msg.setStayCarrierWave(1);
+            client.sendSynMsg(msg);
+            logPrint("MsgBaseInventoryEpc", msg.getRtMsg());
+            if (msg.getRtCode() == 0) {
+                try {
+                    Thread.sleep(timeout);
+                    MsgBaseStop stop = new MsgBaseStop();
+                    client.sendSynMsg(stop);
+                    logPrint("tagEpcOtherInventory", stop.getRtCode() + "");
+                    List<TAGINFO> taginfos = formatData(mbank);
+                    return taginfos;
+//                    if (taginfos.size() > 0) {
+//                        System.arraycopy(taginfos.get(0).EmbededData, 0, rdata, 0, taginfos.get(0).EmbededData.length);
+//                        return READER_ERR.MT_OK_ERR;
+//                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+        }
+        return null;
+    }
+
+    public TAGINFO MatchingTag(int InventoryTime, @NonNull String accessPwd,
+                               int filterBankA, int filterPtrA, int filterCntA, @NonNull String filterDataA,
+                               int ReadBank, int ReadPtr, int ReadCnt,
+                               int filterBankB, int filterPtrB, int filterCntB, String filterDataB,
+                               int matchingBank, int matchingPtr, int matchingCnt,
+                               @NonNull byte[] matchingBytes) {
+        long enterTime = SystemClock.elapsedRealtime();
+        if (type != 0) {
+            logPrint("MatchingTag", "type not support");
+            return null;
+        }
+        if (accessPwd.length() != 8) {
+            logPrint("MatchingTag", "accessPwd length must equal 8");
+            return null;
+        }
+        if (filterCntB > 0 && (filterDataB == null || filterDataB.isEmpty())) {
+            logPrint("MatchingTag",
+                    "filterDataB is null or empty when filterCntB greater than 0");
+            return null;
+        }
+        if (filterDataB == null) {
+            filterDataB = "";
+        }
+        int filterDataALen = filterDataA.length();
+        int filterDataBLen = filterDataB.length();
+        if (filterDataALen % 4 != 0 || filterDataBLen % 4 != 0) {
+            logPrint("MatchingTag", "filterData length error");
+            return null;
+        }
+        if (filterBankA < 0 || filterBankA > 3 || ReadBank < 0 || ReadBank > 3 || filterBankB < 0
+                || filterBankB > 3 || matchingBank < 0 || matchingBank > 3) {
+            logPrint("MatchingTag", "bank must be 0-3");
+            return null;
+        }
+        if (filterPtrA < 0 || ReadPtr < 0 || filterPtrB < 0 || matchingPtr < 0) {
+            logPrint("MatchingTag", "ptr cannot be less than 0");
+            return null;
+        }
+        if (filterCntA < 0 || ReadCnt < 0 || filterCntB < 0 || matchingCnt < 0) {
+            logPrint("MatchingTag", "cnt must be positive integer");
+            return null;
+        }
+        int matchingBytesLen = matchingBytes.length;
+        if (matchingBytesLen < 2 || matchingBytesLen % 2 != 0 || matchingBytesLen / 2 < matchingCnt) {
+            logPrint("MatchingTag", "matchingBytes length error or cnt error");
+            return null;
+        }
+        if (matchingBytesLen / 2 > matchingCnt) {
+            byte[] bytes = new byte[matchingCnt * 2];
+            System.arraycopy(matchingBytes, 0, bytes, 0, matchingCnt * 2);
+            matchingBytes = bytes;
+        }
+        if (filterCntA == 0) {
+            logPrint("MatchingTag", "filterCntA must greater than 0");
+            return null;
+        }
+        if (filterDataA.isEmpty()) {
+            logPrint("MatchingTag", "filterDataA is empty");
+            return null;
+        }
+        if (filterDataALen / 4 > filterCntA) {
+            filterDataA = filterDataA.substring(0, filterCntA * 4);
+        }
+        byte[] bankDataA;
+        List<TAGINFO> taginfos;
+        byte[] bankDataB;
+        List<TAGINFO> taginfosB;
+        String bankDataBStr;
+        boolean match;
+        while (SystemClock.elapsedRealtime() - enterTime < InventoryTime * 100L) {
+            bankDataA = null;
+            taginfos = getTagDataByFilterStay(ReadBank, ReadPtr, ReadCnt,
+                    Tools.HexString2Bytes(accessPwd), (short) 150,
+                    Tools.HexString2Bytes(filterDataA), filterBankA, filterPtrA, true);
+            if (taginfos != null && !taginfos.isEmpty()) {
+                bankDataA = taginfos.get(0).EmbededData;
+                if (bankDataA == null) {
+                    bankDataA = new byte[0];
+                }
+            }
+            if (bankDataA == null) {
+                logPrint("MatchingTag", "bankDataA is null, retry");
+                StopLEDKR();// 停止载波
+                continue;// A标签无回应，不能继续操作，重读A标签
+            }
+            logPrint("MatchingTag", "bankDataA.length = " + bankDataA.length);
+            if (filterCntB == 0) {
+                taginfosB = getTagDataStay(matchingBank, matchingPtr, matchingCnt,
+                        Tools.HexString2Bytes(accessPwd), (short) 50);
+            } else {
+                if (filterDataBLen / 4 > filterCntB) {
+                    filterDataB = filterDataB.substring(0, filterCntB * 4);
+                }
+                taginfosB = getTagDataByFilterStay(matchingBank, matchingPtr, matchingCnt,
+                        Tools.HexString2Bytes(accessPwd), (short) 50,
+                        Tools.HexString2Bytes(filterDataB), filterBankB, filterPtrB, true);
+            }
+            StopLEDKR();// 停止载波
+            if (taginfosB != null && !taginfosB.isEmpty()) {
+                for (int tagBI = 0; tagBI < taginfosB.size(); tagBI++) {// 循环比对第二次读到的所有标签的数据
+                    bankDataB = taginfosB.get(tagBI).EmbededData;
+                    if (bankDataB == null) {
+                        bankDataB = new byte[0];
+                    }
+                    if (bankDataB.length == 0) {
+                        logPrint("MatchingTag", "bankDataB is null or empty, try next label");
+                        continue;// 当前B标签无数据，尝试匹配下一个
+                    }
+                    bankDataBStr = Tools.Bytes2HexString(bankDataB, bankDataB.length);
+                    logPrint("MatchingTag", "bankDataBStr = " + bankDataBStr);
+                    match = true;
+                    for (int i = 0; i < matchingBytes.length; i++) {
+                        String hexMatching = HexUtils.byte2Hex(matchingBytes[i]);
+                        String hexB = HexUtils.byte2Hex(bankDataB[i]);
+                        logPrint("MatchingTag", "hexMatching = " + hexMatching + ", hexB = " + hexB);
+                        int iMatching = Integer.parseInt(hexMatching, 16);
+                        int iB = Integer.parseInt(hexB, 16);
+                        if ((iMatching & iB) != iMatching) {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (!match) {
+                        logPrint("MatchingTag", "matching failed, try nex label");
+                        continue;// 当前B标签匹配失败，尝试匹配下一个
+                    }
+                    logPrint("MatchingTag", "matching success");
+                    return taginfosB.get(tagBI);// 匹配成功，返回B标签的EPC和数据
+                }
+            } else {
+                logPrint("MatchingTag", "taginfosB is null or empty, retry");
+                // 读取B标签失败，重读A标签
+            }
+        }
+        return null;
+    }
 }
 

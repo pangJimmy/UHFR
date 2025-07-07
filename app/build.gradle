@@ -22,8 +22,21 @@ android {
         }
     }
 
+    signingConfigs {
+        LeiHuang_Free {
+            storeFile file("C:/Users/LeiHuang/Documents/License/LeiHuang_Free.jks")
+            storePassword 'android'
+            keyAlias 'key0'
+            keyPassword 'android'
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig signingConfigs.LeiHuang_Free
+        }
         release {
+            signingConfig signingConfigs.LeiHuang_Free
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
         }
@@ -45,7 +58,8 @@ configurations {
 dependencies {
     implementation 'com.android.support:support-v4:28.0.0'
     implementation files('libs/jxl.jar')
-    implementation files('libs/reader(1).jar')
+    implementation files('libs/reader.jar')
+//    implementation files('libs/reader(1).jar')
     implementation fileTree(include: ['*.aar'], dir: 'libs')
     implementation files('libs\\ModuleAPI_J.jar')
     customConfig fileTree(include: ['*.aar'], dir: 'libs')
@@ -62,13 +76,36 @@ task cleanJarDir(type: Delete) {
     }
 }
 
+task sync_aars(type: Copy) {
+    //把所有依赖的.aar库里包含的classes.jar都拷贝到build/aar/libs下，并重命名以不被覆盖
+    def jar_name
+    def aar_path
+    configurations.customConfig.findAll {
+        it.getName().endsWith(".aar")
+    }.collect {
+        aar_path = it.getPath()
+        jar_name = "libs/" + it.getName().replace(".aar", ".jar")
+        copy {
+            from zipTree(aar_path)
+            into dest_dir
+            include "**/*"
+            exclude "cn"
+            rename 'classes.jar', jar_name
+        }
+        println("copy " + aar_path)
+    }
+    println("sync_aars")
+}
+sync_aars.mustRunAfter(cleanJarDir)
+sync_aars.dependsOn(cleanJarDir)
+
 //打包任务
 task aMakeJar(type: Jar) {
     println("makeJar")
     //指定生成的jar名
-    baseName 'UHF67_v3.8.5'
+    baseName 'UHF67_v3.8.5_tagMatch'
     //从哪里打包class文件
-    from "build/intermediates/javac/debug/classes/"
+    from "build/intermediates/javac/release/classes/"
     configurations.tempConfig.findAll {
         it.getName().endsWith(".jar")
     }.collect {
@@ -83,6 +120,7 @@ task aMakeJar(type: Jar) {
     exclude('/com/handheld/uhfr/BuildConfig.class')
     exclude('/com/handheld/uhfr/UHFRManagerBank.class')
     exclude('/com/handheld/uhfrdemo')
+    exclude('/cn')
     exclude('/cn/pda/serialport')
     exclude('/cn/pda/serialport/SerialPort.class')
     exclude('/cn/pda/serialport/Tools.class')
@@ -91,7 +129,7 @@ task aMakeJar(type: Jar) {
     manifest {
         attributes(
                 'Implementation-Title': "uhfr",
-                'Implementation-Version': "3.8.3",
+                'Implementation-Version': "3.8.5_tagMatch",
                 'Built-Date': new Date().getDateTimeString(),
                 'Built-With':
                         "gradle-${project.getGradle().getGradleVersion()},groovy-${GroovySystem.getVersion()}",
@@ -99,5 +137,5 @@ task aMakeJar(type: Jar) {
                         'Java ' + System.getProperty('java.version') + ' (' + System.getProperty('java.vendor') + ')')
     }
 }
-//aMakeJar.mustRunAfter(sync_aars)
-//aMakeJar.dependsOn(sync_aars)
+aMakeJar.mustRunAfter(sync_aars)
+aMakeJar.dependsOn(sync_aars)
