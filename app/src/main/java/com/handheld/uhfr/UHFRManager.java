@@ -3205,10 +3205,11 @@ public class UHFRManager {
         client.onTagEpcLog = new HandlerTagEpcLog() {
             @Override
             public void log(String readerName, LogBaseEpcInfo info) {
-                logPrint("onTagEpcLog", "info.getResult() = " + info.getResult());
+                logPrint("onTagEpcLog", "LogBaseEpcInfo(result=" + info.getResult()
+                        + ",Epc=" + info.getEpc()+ ",FP=" + info.getFrequencyPoint() + ")");
 //                if (DEBUG && info != null) {
 //                }
-                logPrint("onTagEpcLog", "EPC: " + info.getEpc());
+//                logPrint("onTagEpcLog", "EPC: " + info.getEpc());
                 //info.getResult() == 4为LED标签盘点时返回
                 if (info.getResult() == 0 || info.getResult() == 4) {
                     synchronized (epcList) {
@@ -3749,7 +3750,10 @@ public class UHFRManager {
         List<TAGINFO> taginfosB;
         String bankDataBStr;
         boolean match;
+        Region_Conf oldRegion = getRegion();
         while (SystemClock.elapsedRealtime() - enterTime < InventoryTime * 100L) {
+            // N6801暂只支持单频点
+            setFrequencyPoints(new int[]{29});
             bankDataA = null;
             taginfos = getTagDataByFilterStay(ReadBank, ReadPtr, ReadCnt,
                     Tools.HexString2Bytes(accessPwd), (short) 150,
@@ -3807,6 +3811,8 @@ public class UHFRManager {
                         continue;// 当前B标签匹配失败，尝试匹配下一个
                     }
                     logPrint("MatchingTag", "matching success");
+                    // 匹配方法退出前，设置回原频段
+                    setRegion(oldRegion);
                     return taginfosB.get(tagBI);// 匹配成功，返回B标签的EPC和数据
                 }
             } else {
@@ -3814,6 +3820,8 @@ public class UHFRManager {
                 // 读取B标签失败，重读A标签
             }
         }
+        // 匹配方法退出前，设置回原频段
+        setRegion(oldRegion);
         return null;
     }
 }
