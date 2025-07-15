@@ -83,6 +83,7 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import cn.pda.serialport.SerialPort;
 import cn.pda.serialport.Tools;
@@ -3681,6 +3682,20 @@ public class UHFRManager {
         return null;
     }
 
+    private final AtomicInteger matchFrequencyPoint = new AtomicInteger(37);
+
+    public void setMatchFrequencyPoint(int value) {
+        if (type != 0) {
+            logPrint("setMatchPoint", "type not support");
+            return;
+        }
+        if (value < 0 || value > 49) {
+            logPrint("setMatchPoint", "value must be 0-49");
+            return;
+        }
+        matchFrequencyPoint.set(value);
+    }
+
     public TAGINFO MatchingTag(int InventoryTime, @NonNull String accessPwd,
                                int filterBankA, int filterPtrA, int filterCntA, @NonNull String filterDataA,
                                int ReadBank, int ReadPtr, int ReadCnt,
@@ -3751,12 +3766,12 @@ public class UHFRManager {
         String bankDataBStr;
         boolean match;
         Region_Conf oldRegion = getRegion();
+        // N6801暂只支持单频点
+        setFrequencyPoints(new int[]{matchFrequencyPoint.get()});
         while (SystemClock.elapsedRealtime() - enterTime < InventoryTime * 100L) {
-            // N6801暂只支持单频点
-            setFrequencyPoints(new int[]{29});
             bankDataA = null;
             taginfos = getTagDataByFilterStay(ReadBank, ReadPtr, ReadCnt,
-                    Tools.HexString2Bytes(accessPwd), (short) 150,
+                    Tools.HexString2Bytes(accessPwd), (short) 80,
                     Tools.HexString2Bytes(filterDataA), filterBankA, filterPtrA, true);
             if (taginfos != null && !taginfos.isEmpty()) {
                 bankDataA = taginfos.get(0).EmbededData;
@@ -3770,56 +3785,59 @@ public class UHFRManager {
                 continue;// A标签无回应，不能继续操作，重读A标签
             }
             logPrint("MatchingTag", "bankDataA.length = " + bankDataA.length);
-            if (filterCntB == 0) {
-                taginfosB = getTagDataStay(matchingBank, matchingPtr, matchingCnt,
-                        Tools.HexString2Bytes(accessPwd), (short) 50);
-            } else {
-                if (filterDataBLen / 4 > filterCntB) {
-                    filterDataB = filterDataB.substring(0, filterCntB * 4);
+            while (SystemClock.elapsedRealtime() - enterTime < InventoryTime * 100L) {
+                if (filterCntB == 0) {
+                    taginfosB = getTagDataStay(matchingBank, matchingPtr, matchingCnt,
+                            Tools.HexString2Bytes(accessPwd), (short) 100);
+                } else {
+                    if (filterDataBLen / 4 > filterCntB) {
+                        filterDataB = filterDataB.substring(0, filterCntB * 4);
+                    }
+                    taginfosB = getTagDataByFilterStay(matchingBank, matchingPtr, matchingCnt,
+                            Tools.HexString2Bytes(accessPwd), (short) 80,
+                            Tools.HexString2Bytes(filterDataB), filterBankB, filterPtrB, true);
                 }
-                taginfosB = getTagDataByFilterStay(matchingBank, matchingPtr, matchingCnt,
-                        Tools.HexString2Bytes(accessPwd), (short) 50,
-                        Tools.HexString2Bytes(filterDataB), filterBankB, filterPtrB, true);
-            }
-            StopLEDKR();// 停止载波
-            if (taginfosB != null && !taginfosB.isEmpty()) {
-                for (int tagBI = 0; tagBI < taginfosB.size(); tagBI++) {// 循环比对第二次读到的所有标签的数据
-                    bankDataB = taginfosB.get(tagBI).EmbededData;
-                    if (bankDataB == null) {
-                        bankDataB = new byte[0];
-                    }
-                    if (bankDataB.length == 0) {
-                        logPrint("MatchingTag", "bankDataB is null or empty, try next label");
-                        continue;// 当前B标签无数据，尝试匹配下一个
-                    }
-                    bankDataBStr = Tools.Bytes2HexString(bankDataB, bankDataB.length);
-                    logPrint("MatchingTag", "bankDataBStr = " + bankDataBStr);
-                    match = true;
-                    for (int i = 0; i < matchingBytes.length; i++) {
-                        String hexMatching = HexUtils.byte2Hex(matchingBytes[i]);
-                        String hexB = HexUtils.byte2Hex(bankDataB[i]);
-                        logPrint("MatchingTag", "hexMatching = " + hexMatching + ", hexB = " + hexB);
-                        int iMatching = Integer.parseInt(hexMatching, 16);
-                        int iB = Integer.parseInt(hexB, 16);
-                        if ((iMatching & iB) != iMatching) {
-                            match = false;
-                            break;
+                if (taginfosB != null && !taginfosB.isEmpty()) {
+                    for (int tagBI = 0; tagBI < taginfosB.size(); tagBI++) {// 循环比对第二次读到的所有标签的数据
+                        bankDataB = taginfosB.get(tagBI).EmbededData;
+                        if (bankDataB == null) {
+                            bankDataB = new byte[0];
                         }
+                        if (bankDataB.length == 0) {
+                            logPrint("MatchingTag", "bankDataB is null or empty, try next label");
+                            continue;// 当前B标签无数据，尝试匹配下一个
+                        }
+                        bankDataBStr = Tools.Bytes2HexString(bankDataB, bankDataB.length);
+                        logPrint("MatchingTag", "bankDataBStr = " + bankDataBStr);
+                        match = true;
+                        for (int i = 0; i < matchingBytes.length; i++) {
+                            String hexMatching = HexUtils.byte2Hex(matchingBytes[i]);
+                            String hexB = HexUtils.byte2Hex(bankDataB[i]);
+                            logPrint("MatchingTag", "hexMatching = " + hexMatching + ", hexB = " + hexB);
+                            int iMatching = Integer.parseInt(hexMatching, 16);
+                            int iB = Integer.parseInt(hexB, 16);
+                            if ((iMatching & iB) != iMatching) {
+                                match = false;
+                                break;
+                            }
+                        }
+                        if (!match) {
+                            logPrint("MatchingTag", "matching failed, try nex label");
+                            continue;// 当前B标签匹配失败，尝试匹配下一个
+                        }
+                        logPrint("MatchingTag", "matching success");
+                        StopLEDKR();// 停止载波
+                        // 匹配方法退出前，设置回原频段
+                        setRegion(oldRegion);
+                        return taginfosB.get(tagBI);// 匹配成功，返回B标签的EPC和数据
                     }
-                    if (!match) {
-                        logPrint("MatchingTag", "matching failed, try nex label");
-                        continue;// 当前B标签匹配失败，尝试匹配下一个
-                    }
-                    logPrint("MatchingTag", "matching success");
-                    // 匹配方法退出前，设置回原频段
-                    setRegion(oldRegion);
-                    return taginfosB.get(tagBI);// 匹配成功，返回B标签的EPC和数据
+                } else {
+                    logPrint("MatchingTag", "taginfosB is null or empty, retry");
+                    // 读取B标签失败，重读B标签
                 }
-            } else {
-                logPrint("MatchingTag", "taginfosB is null or empty, retry");
-                // 读取B标签失败，重读A标签
             }
         }
+        StopLEDKR();// 停止载波
         // 匹配方法退出前，设置回原频段
         setRegion(oldRegion);
         return null;

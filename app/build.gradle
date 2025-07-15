@@ -103,7 +103,7 @@ sync_aars.dependsOn(cleanJarDir)
 task aMakeJar(type: Jar) {
     println("makeJar")
     //指定生成的jar名
-    baseName 'UHF67_v3.8.5_tagMatch'
+    baseName 'UHF67_v3.8.5_tagMatch_point37'
     //从哪里打包class文件
     from "build/intermediates/javac/release/classes/"
     configurations.tempConfig.findAll {
@@ -129,7 +129,7 @@ task aMakeJar(type: Jar) {
     manifest {
         attributes(
                 'Implementation-Title': "uhfr",
-                'Implementation-Version': "3.8.5_tagMatch",
+                'Implementation-Version': "3.8.5_tagMatch_point37",
                 'Built-Date': new Date().getDateTimeString(),
                 'Built-With':
                         "gradle-${project.getGradle().getGradleVersion()},groovy-${GroovySystem.getVersion()}",
