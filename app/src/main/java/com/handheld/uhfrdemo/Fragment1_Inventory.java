@@ -28,6 +28,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.usbserial.util.LogUtils;
 import com.gg.reader.api.protocol.gx.LogBase6bInfo;
 import com.gg.reader.api.protocol.gx.LogBaseGJbInfo;
 import com.handheld.uhfr.R;
@@ -454,21 +455,29 @@ public class Fragment1_Inventory extends Fragment implements OnCheckedChangeList
             btnExport.setEnabled(false);
             btnClear.setEnabled(false);
             btnStart.setText(this.getString(R.string.stop_inventory_epc));
-            if (isSession1) {
-//                MainActivity.mUhfrManager.setGen2session(1);
-                        MainActivity.mUhfrManager.setInventoryFilter(Tools.HexString2Bytes("1169"), 1, 2, true);
-                        MainActivity.mUhfrManager.setInventoryFilter(Tools.HexString2Bytes("0000"), 1, 2, true);
-            } else {
-                MainActivity.mUhfrManager.setGen2session(isMulti);
+//            if (isSession1) {
+////                MainActivity.mUhfrManager.setGen2session(1);
+//                        MainActivity.mUhfrManager.setInventoryFilter(Tools.HexString2Bytes("1169"), 1, 2, true);
+//                        MainActivity.mUhfrManager.setInventoryFilter(Tools.HexString2Bytes("0000"), 1, 2, true);
+//            } else {
+//                MainActivity.mUhfrManager.setGen2session(isMulti);
+//            }
+//            if (isSession1) {
+//                MainActivity.mUhfrManager.asyncStartReading(16);
+//            }else if (isMulti) {
+//                Log.i(TGA, "isMulti-true");
+//                MainActivity.mUhfrManager.asyncStartReading();
+//            }
+            if(isMulti){
+                Reader.READER_ERR err = MainActivity.mUhfrManager.set_Genx();
+                LogUtils.e("err:"+err.toString());
+                if(err== Reader.READER_ERR.MT_OK_ERR){
+                    handler1.postDelayed(runnable_MainActivity, 0);
+                    isStart = true;
+                }else {
+                    LogUtils.e("SET_GENX:err");
+                }
             }
-            if (isSession1) {
-                MainActivity.mUhfrManager.asyncStartReading(16);
-            }else if (isMulti) {
-                Log.i(TGA, "isMulti-true");
-                MainActivity.mUhfrManager.asyncStartReading();
-            }
-            handler1.postDelayed(runnable_MainActivity, 0);
-            isStart = true;
         } else {
             if (!isTid) {
                 checkMulti.setEnabled(true);

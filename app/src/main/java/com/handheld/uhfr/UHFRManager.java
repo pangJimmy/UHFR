@@ -6,6 +6,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.android.usbserial.util.LogUtils;
 import com.gg.reader.api.dal.GClient;
 import com.gg.reader.api.dal.HandlerTag6bLog;
 import com.gg.reader.api.dal.HandlerTag6bOver;
@@ -56,6 +57,7 @@ import com.gg.reader.api.protocol.gx.ParamFastId;
 import com.gg.reader.api.utils.HexUtils;
 import com.rfid.trans.ReadTag;
 import com.rfid.trans.TagCallback;
+import com.uhf.api.cls.IMPINJ_FASTPARMS;
 import com.uhf.api.cls.InvEmbeddedBankData;
 import com.uhf.api.cls.R2000_calibration.TagLED_DATA;
 import com.uhf.api.cls.ReadListener;
@@ -3564,5 +3566,31 @@ public class UHFRManager {
         return null;
     }
 
+
+    //芯联GenX快速读取模式
+    public READER_ERR set_Genx(){
+        if(type ==1){
+            READER_ERR er;
+
+            Reader.CustomParam_ST cpst=reader.new CustomParam_ST();
+            cpst.ParamName="gen2op/cc_33_cmd";
+            com.uhf.api.cls.IMPINJ_FASTPARMS impjp=new com.uhf.api.cls.IMPINJ_FASTPARMS();
+            impjp.CMD = IMPINJ_FASTPARMS.CMD_INVENTORY;
+            impjp.IMPINJ_MODE_ID = IMPINJ_FASTPARMS.IMPINJ_INVENTORY_MODE_ID_4148;
+            List<Byte> LB = Reader.SpecialStructDataConvert(impjp);
+            cpst.ParamVal=Reader.CollectionTobyteArray(LB);
+            er = reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpst);
+//            LogUtils.e("er0:"+er.toString());
+            if(er==READER_ERR.MT_OK_ERR) {
+                er = reader.AsyncStartReading(ants, 1, 128);//myapp.Rparams.option|0x80 心跳);
+//                LogUtils.e("er1:"+er.toString());
+            }
+            return er;
+
+            //            Log.e("zeng-","myapp.uants:"+	myapp.Rparams.uants.length);
+//            Log.e("zeng-","myapp.option:"+(myapp.Rparams.isstopfornonewtag?myapp.Rparams.option|0x40|0x80:myapp.Rparams.option|0x80));
+        }
+        return null;
+    }
 }
 
