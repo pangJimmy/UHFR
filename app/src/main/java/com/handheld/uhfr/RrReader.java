@@ -412,6 +412,18 @@ public class RrReader {
         return rrlib.StartRead();
     }
 
+    public static int startRead(int Qvalue,int session) {
+        ReaderParameter parameter = rrlib.GetInventoryPatameter();
+        parameter.ScanTime = 50;
+        parameter.Session = session;
+        parameter.QValue = Qvalue;
+        if (parameter.IvtType != 2) {
+            parameter.IvtType = 0;
+        }
+        rrlib.SetInventoryPatameter(parameter);
+        return rrlib.StartRead();
+    }
+
     public static void stopRead() {
         rrlib.StopRead();
         ReaderParameter parameter = rrlib.GetInventoryPatameter();
