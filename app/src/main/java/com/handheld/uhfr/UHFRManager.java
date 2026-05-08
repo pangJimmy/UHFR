@@ -77,7 +77,10 @@ import com.uhf.api.cls.Reader.SL_TagProtocol;
 import com.uhf.api.cls.Reader.TAGINFO;
 import com.uhf.api.cls.Reader.TagFilter_ST;
 import com.uhf.api.cls.Reader.deviceVersion;
+import com.uhf.api.cls.SpecialSensorTag;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -197,6 +200,9 @@ public class UHFRManager {
             int disconnectResult = RrReader.rrlib.DisConnect();
             if (disconnectResult == 0) {
                 new SerialPort().power_5Voff();
+                if (isF) {
+                    new SerialPort().dc_en_off();
+                }
                 uhfrManager = null;
                 logPrint("Close power of rr reader");
                 return true;
@@ -204,7 +210,11 @@ public class UHFRManager {
                 logPrint("Rr close error: " + disconnectResult);
             }
         }
+//        new SerialPort().dc_en_off();
         new SerialPort().power_5Voff();
+        if (isF) {
+            new SerialPort().dc_en_off();
+        }
         uhfrManager = null;
         logPrint("Close power of reader");
         return true;
@@ -249,6 +259,8 @@ public class UHFRManager {
         return version;
     }
 
+    private static boolean isF = false;
+
     private static boolean connect() {
         // 重置静态变量标志
         type = -1;
@@ -257,82 +269,80 @@ public class UHFRManager {
         InputStream inputStream = null;
         SerialPort serialPort = null;
         try {
-            new SerialPort().power_5Von();
-//            new SerialPort().scaner_poweron();
-            Thread.sleep(500);
-            serialPort = new SerialPort(port, 115200, 0);
-            // 国芯获取版本号指令
-            String cmd = "5A000101010000EBD5";
-            outputStream = serialPort.getOutputStream();
-            outputStream.write(Tools.HexString2Bytes(cmd));
-            outputStream.flush();
-            Thread.sleep(20);
-            byte[] bytes = new byte[128];
-            inputStream = serialPort.getInputStream();
-            int read = inputStream.read(bytes);
-            String retStr = Tools.Bytes2HexString(bytes, read);
-            logPrint("zeng-", "retStr0:" + retStr);
-            if (retStr.length() >= 10 && retStr.contains("5A00010101")) {
-                // 获取到国芯模块返回
-                type = 0;
+            if ( new SerialPort().dc_en_on()) {
+                isF = true;
+                LogUtils.e("dc_en_on:" + true);
             } else {
-                // 芯联获取版本号指令
-                cmd = "FF00031D0C";
+                LogUtils.e("dc_en_on:" + false);
+                new SerialPort().power_5Von();
+                new SerialPort().rfid_poweron();
+            }
+            LogUtils.e("dc_en_on:" + isF);
+            com.rfid.serialport.SerialPort serialPortCmd;
+            if (isF) {
+                serialPortCmd = new com.rfid.serialport.SerialPort(new File("/dev/ttyS1"), 921600, 0);
+                String cmd = "FF00031D0C";
+                byte[] bytes = new byte[128];
+                outputStream = serialPortCmd.getOutputStream();
+                inputStream = serialPortCmd.getInputStream();
+                int read = inputStream.read(bytes);
+                String retStr = Tools.Bytes2HexString(bytes, read);
                 outputStream.write(Tools.HexString2Bytes(cmd));
                 outputStream.flush();
                 Thread.sleep(20);
                 read = inputStream.read(bytes);
                 retStr = Tools.Bytes2HexString(bytes, read);
-                logPrint("zeng-", "retStr1:" + retStr);
                 if (retStr.length() > 40) {
-                    // 获取到芯联R2000模块返回
+                    logPrint("zeng-", "retStr1:" + retStr);
                     type = 1;
-                    isE710 = false;
+                    isE710 = true;
                 } else {
-                    // E710
-                    serialPort.close(port);
-                    serialPort = new SerialPort(port, 921600, 0);
-                    outputStream = serialPort.getOutputStream();
-                    inputStream = serialPort.getInputStream();
-                    cmd = "FF00031D0C";
-                    outputStream.write(Tools.HexString2Bytes(cmd));
+                    serialPortCmd.close();
+                    SystemClock.sleep(10);
+                    serialPortCmd = new com.rfid.serialport.SerialPort(new File("/dev/ttyS1"), 115200, 0);
+                    outputStream = serialPortCmd.getOutputStream();
+                    inputStream = serialPortCmd.getInputStream();
+                    outputStream.write(Tools.HexString2Bytes("FF00031D0C"));
                     outputStream.flush();
-                    Thread.sleep(20);
+                    SystemClock.sleep(10);
                     read = inputStream.read(bytes);
                     retStr = Tools.Bytes2HexString(bytes, read);
-                    logPrint("zeng-", "retStr2:" + retStr);
+                    LogUtils.e("retStr3(115200): " + retStr);
                     if (retStr.length() > 40) {
-                        // 获取到芯联E710模块返回
                         type = 1;
-                        isE710 = true;
+                        isE710 = false;
                     } else {
+                        serialPortCmd.close();
                         SystemClock.sleep(80);
-                        serialPort = new SerialPort(port, 921600, 0);
-                        outputStream = serialPort.getOutputStream();
-                        inputStream = serialPort.getInputStream();
+                        serialPortCmd = new com.rfid.serialport.SerialPort(new File("/dev/ttyS1"), 921600, 0);
+                        outputStream = serialPortCmd.getOutputStream();
+                        inputStream = serialPortCmd.getInputStream();
                         outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
                         outputStream.flush();
                         SystemClock.sleep(10);
                         read = inputStream.read(bytes);
                         retStr = Tools.Bytes2HexString(bytes, read);
-                        logPrint("connect", "retStr3(921600): " + retStr);
+                        LogUtils.e("retStr3(921600): " + retStr);
                         if (retStr.length() > 10) {
                             // 荣睿模块
                             type = 3;
                             // 切换波特率
                             outputStream.write(Tools.HexString2Bytes("05002806B3E5"));
                             outputStream.flush();
-                            SystemClock.sleep(50);
+                            SystemClock.sleep(10);
                             read = inputStream.read(bytes);
                             retStr = Tools.Bytes2HexString(bytes, read);
                             logPrint("connect", "rr switch to 115200: " + retStr);
                         } else {
-                            serialPort = new SerialPort(port, 115200, 0);
-                            outputStream = serialPort.getOutputStream();
-                            inputStream = serialPort.getInputStream();
+                            serialPortCmd.close();
+                            SystemClock.sleep(10);
+                            serialPortCmd = new com.rfid.serialport.SerialPort(new File("/dev/ttyS1"), 115200, 0);
+//                        serialPortCmd = new SerialPort(port, 115200, 0);
+                            outputStream = serialPortCmd.getOutputStream();
+                            inputStream = serialPortCmd.getInputStream();
                             outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
                             outputStream.flush();
-                            SystemClock.sleep(10);
+                            SystemClock.sleep(200);
                             read = inputStream.read(bytes);
                             retStr = Tools.Bytes2HexString(bytes, read);
                             logPrint("connect", "retStr3(115200): " + retStr);
@@ -354,7 +364,105 @@ public class UHFRManager {
                         }
                     }
                 }
+            } else {
+                Thread.sleep(800);
+                serialPort = new SerialPort(port, 115200, 0);
+                // 国芯获取版本号指令
+                String cmd = "5A000101010000EBD5";
+                outputStream = serialPort.getOutputStream();
+                outputStream.write(Tools.HexString2Bytes(cmd));
+                outputStream.flush();
+                Thread.sleep(100);
+                byte[] bytes = new byte[128];
+                inputStream = serialPort.getInputStream();
+                int read = inputStream.read(bytes);
+                String retStr = Tools.Bytes2HexString(bytes, read);
+                logPrint("zeng-", "retStr0:" + retStr);
+                if (retStr.length() >= 10 && retStr.contains("5A00010101")) {
+                    // 获取到国芯模块返回
+                    type = 0;
+                } else {
+                    // 芯联获取版本号指令
+                    cmd = "FF00031D0C";
+                    outputStream.write(Tools.HexString2Bytes(cmd));
+                    outputStream.flush();
+                    Thread.sleep(20);
+                    read = inputStream.read(bytes);
+                    retStr = Tools.Bytes2HexString(bytes, read);
+                    logPrint("zeng-", "retStr1:" + retStr);
+                    if (retStr.length() > 40) {
+                        // 获取到芯联R2000模块返回
+                        type = 1;
+                        isE710 = false;
+                    } else {
+                        // E710
+                        serialPort.close(port);
+                        serialPort = new SerialPort(port, 921600, 0);
+                        outputStream = serialPort.getOutputStream();
+                        inputStream = serialPort.getInputStream();
+                        cmd = "FF00031D0C";
+                        outputStream.write(Tools.HexString2Bytes(cmd));
+                        outputStream.flush();
+                        Thread.sleep(50);
+                        read = inputStream.read(bytes);
+                        retStr = Tools.Bytes2HexString(bytes, read);
+                        logPrint("zeng-", "retStr2:" + retStr);
+                        if (retStr.length() > 40) {
+                            // 获取到芯联E710模块返回
+                            type = 1;
+                            isE710 = true;
+                        } else {
+                            SystemClock.sleep(80);
+                            serialPort = new SerialPort(port, 921600, 0);
+                            outputStream = serialPort.getOutputStream();
+                            inputStream = serialPort.getInputStream();
+                            outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
+                            outputStream.flush();
+                            SystemClock.sleep(10);
+                            read = inputStream.read(bytes);
+                            retStr = Tools.Bytes2HexString(bytes, read);
+                            logPrint("connect", "retStr3(921600): " + retStr);
+                            if (retStr.length() > 10) {
+                                // 荣睿模块
+                                type = 3;
+                                // 切换波特率
+                                outputStream.write(Tools.HexString2Bytes("05002806B3E5"));
+                                outputStream.flush();
+                                SystemClock.sleep(50);
+                                read = inputStream.read(bytes);
+                                retStr = Tools.Bytes2HexString(bytes, read);
+                                logPrint("connect", "rr switch to 115200: " + retStr);
+                            } else {
+                                serialPort = new SerialPort(port, 115200, 0);
+                                outputStream = serialPort.getOutputStream();
+                                inputStream = serialPort.getInputStream();
+                                outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
+                                outputStream.flush();
+                                SystemClock.sleep(10);
+                                read = inputStream.read(bytes);
+                                retStr = Tools.Bytes2HexString(bytes, read);
+                                logPrint("connect", "retStr3(115200): " + retStr);
+                                if (retStr.length() > 10) {
+                                    // 荣睿模块
+                                    type = 3;
+                                } else {
+//                                    cmd = "A55A000902000B0D0A";
+//                                    outputStream.write(Tools.HexString2Bytes(cmd));
+//                                    outputStream.flush();
+//                                    Thread.sleep(20);
+//                                    read = inputStream.read(bytes);
+//                                    retStr = Tools.Bytes2HexString(bytes, read);
+//                                    logPrint("connect", "retStr4: " + retStr);
+//                                    if (retStr.length() > 10) {
+//                                        type = 2;
+//                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
+
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         } finally {
@@ -372,31 +480,51 @@ public class UHFRManager {
                 e.printStackTrace();
             }
         }
-        logPrint("Zeng-", "type:" + type);
         if (type == 0) {
             client = new GClient();
-            if (client.openHdSerial("13:115200", 0)) {
+            if (isF) {
+                client.openAndroidSerial("/dev/ttyS1", 0);
                 onTagHandler();
-                client.hdPowerOn();
+
                 try {
                     Thread.sleep(100L);
                 } catch (InterruptedException var1) {
                     var1.printStackTrace();
                 }
-                return true;
+            } else {
+                if (client.openHdSerial("0:115200", 0)) {
+                    onTagHandler();
+                    client.hdPowerOn();
+                    try {
+                        Thread.sleep(100L);
+                    } catch (InterruptedException var1) {
+                        var1.printStackTrace();
+                    }
+                    return true;
+                }
             }
         } else if (type == 1) {
             reader = new Reader();
             READER_ERR er;
             long enterTime = SystemClock.elapsedRealtime();
-            logPrint("Zeng-", "isE710:" + isE710);
-            if (isE710) {
-                // E710 波特率921600
-                er = reader.InitReader_Notype("/dev/ttyMT1:921600", 1);
+            if (isF) {
+                if (isE710) {
+                    // E710 波特率921600
+                    er = reader.InitReader_Notype("/dev/ttyS1:921600", 1);
+                } else {
+                    // R2000 波特率115200
+                    er = reader.InitReader_Notype("/dev/ttyS1", 1);
+                }
             } else {
-                // R2000 波特率115200
-                er = reader.InitReader_Notype("/dev/ttyMT1", 1);
+                if (isE710) {
+                    // E710 波特率921600
+                    er = reader.InitReader_Notype("/dev/ttyMT1:921600", 1);
+                } else {
+                    // R2000 波特率115200
+                    er = reader.InitReader_Notype("/dev/ttyMT1:115200", 1);
+                }
             }
+
             long outTime = SystemClock.elapsedRealtime();
             Log.i("zeng-", "InitReader cusTime: " + (outTime - enterTime));
             if (er == READER_ERR.MT_OK_ERR) {
@@ -406,7 +534,13 @@ public class UHFRManager {
             }
             reader.CloseReader();
         } else if (type == 3) {
-            int result = RrReader.connect("/dev/ttyMT1", 115200, DEBUG ? 1 : 0);
+            int result = -1;
+            if (isF) {
+                result = RrReader.connect("/dev/ttyS1", 115200, DEBUG ? 1 : 0);
+            } else {
+                result = RrReader.connect("/dev/ttyMT1", 115200, DEBUG ? 1 : 0);
+
+            }
             if (result == 0) {
                 RrReader.rrlib.SetCallBack(callback);
                 return true;
@@ -415,6 +549,10 @@ public class UHFRManager {
             }
         }
         new SerialPort().power_5Voff();
+        new SerialPort().rfid_poweroff();
+        if (isF) {
+            new SerialPort().dc_en_off();
+        }
 //        new SerialPort().scaner_poweroff();
         return false;
     }
@@ -734,7 +872,7 @@ public class UHFRManager {
         } else if (type == 1) {
 //            for(int i=0;i<myapp.mfiltags.size();i++)
 //                mepc[i]=myapp.mfiltags.get(i);
-            READER_ERR er = reader.ParamSet(Reader.Mtr_Param.MTR_PARAM_TAG_MULTISELECTORS, mepc);
+            READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_MULTISELECTORS, mepc);
             if (er != READER_ERR.MT_OK_ERR) {
                 logPrint("setInventoryFilters, ParamSet MTR_PARAM_TAG_FILTER result: " + er.toString());
                 return false;
@@ -3308,6 +3446,7 @@ public class UHFRManager {
     }
 
     private static long lastEnterTime = SystemClock.elapsedRealtime();
+
     public static class MsgCallback implements TagCallback {
 
         @Override
@@ -3323,7 +3462,7 @@ public class UHFRManager {
         }
     }
 
-    private List<Reader.TAGINFO> formatRrTagList() {
+    private List<TAGINFO> formatRrTagList() {
         synchronized (rrTagList) {
             HashMap<String, TAGINFO> tagMap = new HashMap<>();
             for (ReadTag info : rrTagList) {
@@ -3471,7 +3610,7 @@ public class UHFRManager {
             msg.setFilter(filter);
             msg.setStayCarrierWave(1);//载波保持client.sendSynMsg(msg);
             if (msg.getRtCode() == 0) {
-                return Reader.READER_ERR.MT_OK_ERR;
+                return READER_ERR.MT_OK_ERR;
 
             }
 //            return READER_ERR.MT_CMD_FAILED_ERR;
@@ -3568,29 +3707,104 @@ public class UHFRManager {
 
 
     //芯联GenX快速读取模式
-    public READER_ERR set_Genx(){
-        if(type ==1){
+    public READER_ERR set_Genx() {
+        if (type == 1) {
             READER_ERR er;
 
-            Reader.CustomParam_ST cpst=reader.new CustomParam_ST();
-            cpst.ParamName="gen2op/cc_33_cmd";
-            com.uhf.api.cls.IMPINJ_FASTPARMS impjp=new com.uhf.api.cls.IMPINJ_FASTPARMS();
+            Reader.CustomParam_ST cpst = reader.new CustomParam_ST();
+            cpst.ParamName = "gen2op/cc_33_cmd";
+            IMPINJ_FASTPARMS impjp = new IMPINJ_FASTPARMS();
             impjp.CMD = IMPINJ_FASTPARMS.CMD_INVENTORY;
             impjp.IMPINJ_MODE_ID = IMPINJ_FASTPARMS.IMPINJ_INVENTORY_MODE_ID_4148;
             List<Byte> LB = Reader.SpecialStructDataConvert(impjp);
-            cpst.ParamVal=Reader.CollectionTobyteArray(LB);
+            cpst.ParamVal = Reader.CollectionTobyteArray(LB);
             er = reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpst);
-//            LogUtils.e("er0:"+er.toString());
-            if(er==READER_ERR.MT_OK_ERR) {
+            if (er == READER_ERR.MT_OK_ERR) {
                 er = reader.AsyncStartReading(ants, 1, 128);//myapp.Rparams.option|0x80 心跳);
-//                LogUtils.e("er1:"+er.toString());
             }
             return er;
-
-            //            Log.e("zeng-","myapp.uants:"+	myapp.Rparams.uants.length);
-//            Log.e("zeng-","myapp.option:"+(myapp.Rparams.isstopfornonewtag?myapp.Rparams.option|0x40|0x80:myapp.Rparams.option|0x80));
         }
         return null;
     }
+
+    /**
+     * 测试温度标签SCR409
+     */
+
+    public SpecialSensorTag.Tag_SCR409 testgetspecialsensortags() {
+        if (type == 1) {
+            SpecialSensorTag.Tag_SCR409 tagscr = new SpecialSensorTag().new Tag_SCR409();
+            READER_ERR er = reader.SpecialSensorTagOp(1, 1000, tagscr);
+            if (er == READER_ERR.MT_OK_ERR) {
+//                LogUtils.e("RSSI:" + tagscr.RSSI + "  Frequency:" + tagscr.Frequency +
+//                        "   pvtPhase:" + tagscr.Phase + "  EPC:" + reader.bytes_Hexstr(tagscr.EpcId) +
+////                                "  EPC:" + Tools.Bytes2HexString(tagscr.EpcId,tagscr.Epclen)+
+//                        "   温度:" + tagscr.temperature);
+//                System.out.println();
+                return tagscr;
+            }
+        }
+        return null;
+    }
+
+    //
+    public READER_ERR tagInventoryRealTimeLEDTag() {
+        READER_ERR er = null;
+        if (type == 1) {
+            isEmb = true;
+            Emboption = 0x0080;
+            Emboption = (Emboption << 8);
+            //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
+            Reader.EmbededData_ST edst = reader.new EmbededData_ST();
+            edst.bank = 0;
+            edst.startaddr = 4;
+            edst.bytecnt = 4;
+            edst.accesspwd = Tools.HexString2Bytes("00000000");
+            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
+            if (er == READER_ERR.MT_OK_ERR) {
+                if (isE710) {
+                    Reader.CustomParam_ST cpst = reader.new CustomParam_ST();
+                    cpst.ParamName = "Reader/Ex10fastmode";
+                    byte[] vals = new byte[22];
+                    vals[0] = 1;
+                    vals[1] = 20;
+                    for (int i = 0; i < 20; i++)
+                        vals[2 + i] = 0;
+                    cpst.ParamVal = vals;
+                    reader.ParamSet(Mtr_Param.MTR_PARAM_CUSTOM, cpst);
+
+                    return reader.AsyncStartReading(ants, 1, 144);
+                }
+                return reader.AsyncStartReading(ants, 1, 144);
+            }
+        }
+        return er;
+    }
+
+
+    public READER_ERR tagInventoryRealTimeLEDTag(String[] epcs) {
+        READER_ERR er = null;
+        if (type == 1) {
+            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_MULTISELECTORS, epcs);
+            isEmb = true;
+            Emboption = 0x0080;
+            Emboption = (Emboption << 8);
+            //by lbx 2017-4-27 get other:res=0, bank epc =1 tid=2 user =3
+            Reader.EmbededData_ST edst = reader.new EmbededData_ST();
+            edst.bank = 0;
+            edst.startaddr = 4;
+            edst.bytecnt = 4;
+            edst.accesspwd = Tools.HexString2Bytes("00000000");
+            er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_EMBEDEDDATA, edst);
+            if (er == READER_ERR.MT_OK_ERR) {
+
+                return reader.AsyncStartReading(ants, 1, 128);
+            }
+        }
+        return er;
+    }
+
+
+
 }
 
