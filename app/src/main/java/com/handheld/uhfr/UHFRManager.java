@@ -2,9 +2,9 @@ package com.handheld.uhfr;
 
 import android.os.SystemClock;
 
+import android.support.annotation.NonNull;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
 
 import com.android.usbserial.util.LogUtils;
 import com.gg.reader.api.dal.GClient;
