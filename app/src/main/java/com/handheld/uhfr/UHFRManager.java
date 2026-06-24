@@ -1,12 +1,9 @@
 package com.handheld.uhfr;
 
 import android.os.SystemClock;
-
 import android.support.annotation.NonNull;
 import android.util.Log;
 
-
-import com.android.usbserial.util.LogUtils;
 import com.gg.reader.api.dal.GClient;
 import com.gg.reader.api.dal.HandlerTag6bLog;
 import com.gg.reader.api.dal.HandlerTag6bOver;
@@ -80,7 +77,6 @@ import com.uhf.api.cls.Reader.deviceVersion;
 import com.uhf.api.cls.SpecialSensorTag;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -155,6 +151,10 @@ public class UHFRManager {
         }
     }
 
+    private static void logErrPrint(String content) {
+        Log.e(tag, content);
+    }
+
     private static void logPrint(String tag, String content) {
         logPrint("[" + tag + "]->" + content);
     }
@@ -198,25 +198,30 @@ public class UHFRManager {
             reader = null;
         } else if (type == 3) {
             int disconnectResult = RrReader.rrlib.DisConnect();
-            if (disconnectResult == 0) {
-                new SerialPort().power_5Voff();
-                if (isF) {
-                    new SerialPort().dc_en_off();
-                }
-                uhfrManager = null;
-                logPrint("Close power of rr reader");
-                return true;
-            } else {
+            if (disconnectResult != 0) {
                 logPrint("Rr close error: " + disconnectResult);
             }
+//            else {
+//                new SerialPort().power_5Voff();
+//                if (isF) {
+//                    new SerialPort().dc_en_off();
+//                }
+//                uhfrManager = null;
+//                logPrint("Close power of rr reader");
+//                return true;
+//            }
         }
 //        new SerialPort().dc_en_off();
-        new SerialPort().power_5Voff();
         if (isF) {
             new SerialPort().dc_en_off();
+            logPrint("close", "power off F");
+        } else {
+            new SerialPort().power_5Voff();
+            new SerialPort().rfid_poweroff();
+            logPrint("close", "power off !F");
         }
         uhfrManager = null;
-        logPrint("Close power of reader");
+        logPrint("close", "close reader");
         return true;
 
     }
@@ -265,206 +270,133 @@ public class UHFRManager {
         // 重置静态变量标志
         type = -1;
         isE710 = false;
+        isF = new SerialPort().dc_en_on();
+        String portPath = "/dev/ttyMT1";
+        logPrint("connecti", "power on F: " + isF);
+        if (!isF) {
+            new SerialPort().power_5Von();
+            new SerialPort().rfid_poweron();
+            logPrint("connecti", "power on !F");
+        } else {
+            portPath = "/dev/ttyS1";// F连接超高频串口路径
+        }
+        SystemClock.sleep(500);
+        connectInternal(portPath);
+        if (type == 0) {
+            client = new GClient();
+            if (client.openAndroidSerial(portPath + ":115200", 0)) {
+                onTagHandler();
+                SystemClock.sleep(100);
+                return true;
+            }
+        } else if (type == 1) {
+            reader = new Reader();
+            READER_ERR er;
+            long enterTime = SystemClock.elapsedRealtime();
+            if (isE710) {
+                // E710 波特率921600
+                er = reader.InitReader_Notype(portPath + ":921600", 1);
+            } else {
+                // R2000 波特率115200
+                er = reader.InitReader_Notype(portPath, 1);
+            }
+            long outTime = SystemClock.elapsedRealtime();
+            Log.i("zeng-", "InitReader cusTime: " + (outTime - enterTime));
+            if (er == READER_ERR.MT_OK_ERR) {
+                if (connect2()) {
+                    return true;
+                }
+            }
+            reader.CloseReader();
+        } else if (type == 3) {
+            int result = -1;
+            result = RrReader.connect(portPath, 115200, DEBUG ? 1 : 0);
+            if (result == 0) {
+                RrReader.rrlib.SetCallBack(callback);
+                return true;
+            } else {
+                logPrint("Rr connect error: " + result);
+            }
+        }
+        // 初始化失败，模组下电
+        if (isF) {
+            new SerialPort().dc_en_off();
+            logPrint("connecti", "power off F");
+        } else {
+            new SerialPort().power_5Voff();
+            new SerialPort().rfid_poweroff();
+            logPrint("connecti", "power off !F");
+        }
+        return false;
+    }
+
+    private static void connectInternal(String portPath) {
         OutputStream outputStream = null;
         InputStream inputStream = null;
         SerialPort serialPort = null;
+        android.serialport.SerialPort aSerialPort = null;
         try {
-            if ( new SerialPort().dc_en_on()) {
-                isF = true;
-                LogUtils.e("dc_en_on:" + true);
-            } else {
-                LogUtils.e("dc_en_on:" + false);
-                new SerialPort().power_5Von();
-                new SerialPort().rfid_poweron();
-            }
-            LogUtils.e("dc_en_on:" + isF);
-            com.rfid.serialport.SerialPort serialPortCmd;
+            String retStr;
             if (isF) {
-                serialPortCmd = new com.rfid.serialport.SerialPort(new File("/dev/ttyS1"), 921600, 0);
-                String cmd = "FF00031D0C";
-                byte[] bytes = new byte[128];
-                outputStream = serialPortCmd.getOutputStream();
-                inputStream = serialPortCmd.getInputStream();
-                int read = inputStream.read(bytes);
-                String retStr = Tools.Bytes2HexString(bytes, read);
-                outputStream.write(Tools.HexString2Bytes(cmd));
-                outputStream.flush();
-                Thread.sleep(20);
-                read = inputStream.read(bytes);
-                retStr = Tools.Bytes2HexString(bytes, read);
-                if (retStr.length() > 40) {
-                    logPrint("zeng-", "retStr1:" + retStr);
-                    type = 1;
-                    isE710 = true;
-                } else {
-                    serialPortCmd.close();
-                    SystemClock.sleep(10);
-                    serialPortCmd = new com.rfid.serialport.SerialPort(new File("/dev/ttyS1"), 115200, 0);
-                    outputStream = serialPortCmd.getOutputStream();
-                    inputStream = serialPortCmd.getInputStream();
-                    outputStream.write(Tools.HexString2Bytes("FF00031D0C"));
-                    outputStream.flush();
-                    SystemClock.sleep(10);
-                    read = inputStream.read(bytes);
-                    retStr = Tools.Bytes2HexString(bytes, read);
-                    LogUtils.e("retStr3(115200): " + retStr);
-                    if (retStr.length() > 40) {
-                        type = 1;
-                        isE710 = false;
-                    } else {
-                        serialPortCmd.close();
-                        SystemClock.sleep(80);
-                        serialPortCmd = new com.rfid.serialport.SerialPort(new File("/dev/ttyS1"), 921600, 0);
-                        outputStream = serialPortCmd.getOutputStream();
-                        inputStream = serialPortCmd.getInputStream();
-                        outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
-                        outputStream.flush();
-                        SystemClock.sleep(10);
-                        read = inputStream.read(bytes);
-                        retStr = Tools.Bytes2HexString(bytes, read);
-                        LogUtils.e("retStr3(921600): " + retStr);
-                        if (retStr.length() > 10) {
-                            // 荣睿模块
-                            type = 3;
-                            // 切换波特率
-                            outputStream.write(Tools.HexString2Bytes("05002806B3E5"));
-                            outputStream.flush();
-                            SystemClock.sleep(10);
-                            read = inputStream.read(bytes);
-                            retStr = Tools.Bytes2HexString(bytes, read);
-                            logPrint("connect", "rr switch to 115200: " + retStr);
-                        } else {
-                            serialPortCmd.close();
-                            SystemClock.sleep(10);
-                            serialPortCmd = new com.rfid.serialport.SerialPort(new File("/dev/ttyS1"), 115200, 0);
-//                        serialPortCmd = new SerialPort(port, 115200, 0);
-                            outputStream = serialPortCmd.getOutputStream();
-                            inputStream = serialPortCmd.getInputStream();
-                            outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
-                            outputStream.flush();
-                            SystemClock.sleep(200);
-                            read = inputStream.read(bytes);
-                            retStr = Tools.Bytes2HexString(bytes, read);
-                            logPrint("connect", "retStr3(115200): " + retStr);
-                            if (retStr.length() > 10) {
-                                // 荣睿模块
-                                type = 3;
-                            } else {
-                                cmd = "A55A000902000B0D0A";
-                                outputStream.write(Tools.HexString2Bytes(cmd));
-                                outputStream.flush();
-                                Thread.sleep(20);
-                                read = inputStream.read(bytes);
-                                retStr = Tools.Bytes2HexString(bytes, read);
-                                logPrint("connect", "retStr4: " + retStr);
-                                if (retStr.length() > 10) {
-                                    type = 2;
-                                }
-                            }
-                        }
-                    }
-                }
+                aSerialPort = new android.serialport.SerialPort(new File(portPath), 115200,
+                        8, 0, 1, 0);// 先在115200波特率下获取版本号
+                outputStream = aSerialPort.getOutputStream();
+                inputStream = aSerialPort.getInputStream();
             } else {
-                Thread.sleep(800);
-                serialPort = new SerialPort(port, 115200, 0);
-                // 国芯获取版本号指令
-                String cmd = "5A000101010000EBD5";
+                serialPort = new SerialPort(port, 115200, 0);// 先在115200波特率下获取版本号
                 outputStream = serialPort.getOutputStream();
-                outputStream.write(Tools.HexString2Bytes(cmd));
-                outputStream.flush();
-                Thread.sleep(100);
-                byte[] bytes = new byte[128];
                 inputStream = serialPort.getInputStream();
-                int read = inputStream.read(bytes);
-                String retStr = Tools.Bytes2HexString(bytes, read);
-                logPrint("zeng-", "retStr0:" + retStr);
-                if (retStr.length() >= 10 && retStr.contains("5A00010101")) {
-                    // 获取到国芯模块返回
-                    type = 0;
+            }
+            retStr = writeCmd(outputStream, inputStream, 100, "5A000101010000EBD5");
+            logPrint("connecti", "version_gx_0 ret: " + retStr);
+            if (retStr.length() >= 10 && retStr.contains("5A00010101")) {
+                type = 0;// 国芯模块
+            } else {
+                retStr = writeCmd(outputStream, inputStream, 20, "FF00031D0C");
+                logPrint("connecti", "version_xl_0 ret: " + retStr);
+                if (retStr.length() > 40) {
+                    type = 1;// 芯联模块
+                    isE710 = false;
                 } else {
-                    // 芯联获取版本号指令
-                    cmd = "FF00031D0C";
-                    outputStream.write(Tools.HexString2Bytes(cmd));
-                    outputStream.flush();
-                    Thread.sleep(20);
-                    read = inputStream.read(bytes);
-                    retStr = Tools.Bytes2HexString(bytes, read);
-                    logPrint("zeng-", "retStr1:" + retStr);
-                    if (retStr.length() > 40) {
-                        // 获取到芯联R2000模块返回
-                        type = 1;
-                        isE710 = false;
+                    SystemClock.sleep(10);
+                    retStr = writeCmd(outputStream, inputStream, 10, "04004C3AD2");
+                    logPrint("connecti", "version_rr_0 ret: " + retStr);
+                    if (retStr.length() > 10) {
+                        type = 3;// 荣睿模块
                     } else {
-                        // E710
-                        serialPort.close(port);
-                        serialPort = new SerialPort(port, 921600, 0);
-                        outputStream = serialPort.getOutputStream();
-                        inputStream = serialPort.getInputStream();
-                        cmd = "FF00031D0C";
-                        outputStream.write(Tools.HexString2Bytes(cmd));
-                        outputStream.flush();
-                        Thread.sleep(50);
-                        read = inputStream.read(bytes);
-                        retStr = Tools.Bytes2HexString(bytes, read);
-                        logPrint("zeng-", "retStr2:" + retStr);
+                        if (isF) {
+                            aSerialPort.close();
+                            aSerialPort = new android.serialport.SerialPort(new File(portPath),
+                                    921600, 8, 0, 1, 0);// 先在115200波特率下获取版本号
+                            outputStream = aSerialPort.getOutputStream();
+                            inputStream = aSerialPort.getInputStream();
+                        } else {
+                            serialPort.close(port);
+                            serialPort = new SerialPort(port, 921600, 0);// 切换921600波特率
+                            outputStream = serialPort.getOutputStream();
+                            inputStream = serialPort.getInputStream();
+                        }
+                        retStr = writeCmd(outputStream, inputStream, 50, "FF00031D0C");
+                        logPrint("connecti", "version_xl_1 ret: " + retStr);
                         if (retStr.length() > 40) {
-                            // 获取到芯联E710模块返回
-                            type = 1;
+                            type = 1;// 芯联模块
                             isE710 = true;
                         } else {
                             SystemClock.sleep(80);
-                            serialPort = new SerialPort(port, 921600, 0);
-                            outputStream = serialPort.getOutputStream();
-                            inputStream = serialPort.getInputStream();
-                            outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
-                            outputStream.flush();
-                            SystemClock.sleep(10);
-                            read = inputStream.read(bytes);
-                            retStr = Tools.Bytes2HexString(bytes, read);
-                            logPrint("connect", "retStr3(921600): " + retStr);
+                            retStr = writeCmd(outputStream, inputStream, 10, "04004C3AD2");
+                            logPrint("connecti", "version_rr_1 ret: " + retStr);
                             if (retStr.length() > 10) {
-                                // 荣睿模块
-                                type = 3;
-                                // 切换波特率
-                                outputStream.write(Tools.HexString2Bytes("05002806B3E5"));
-                                outputStream.flush();
-                                SystemClock.sleep(50);
-                                read = inputStream.read(bytes);
-                                retStr = Tools.Bytes2HexString(bytes, read);
-                                logPrint("connect", "rr switch to 115200: " + retStr);
-                            } else {
-                                serialPort = new SerialPort(port, 115200, 0);
-                                outputStream = serialPort.getOutputStream();
-                                inputStream = serialPort.getInputStream();
-                                outputStream.write(Tools.HexString2Bytes("04004C3AD2"));
-                                outputStream.flush();
-                                SystemClock.sleep(10);
-                                read = inputStream.read(bytes);
-                                retStr = Tools.Bytes2HexString(bytes, read);
-                                logPrint("connect", "retStr3(115200): " + retStr);
-                                if (retStr.length() > 10) {
-                                    // 荣睿模块
-                                    type = 3;
-                                } else {
-//                                    cmd = "A55A000902000B0D0A";
-//                                    outputStream.write(Tools.HexString2Bytes(cmd));
-//                                    outputStream.flush();
-//                                    Thread.sleep(20);
-//                                    read = inputStream.read(bytes);
-//                                    retStr = Tools.Bytes2HexString(bytes, read);
-//                                    logPrint("connect", "retStr4: " + retStr);
-//                                    if (retStr.length() > 10) {
-//                                        type = 2;
-//                                    }
-                                }
+                                type = 3;// 荣睿模块
+                                // 将荣睿模块波特率切换回115200
+                                retStr = writeCmd(outputStream, inputStream, 50, "05002806B3E5");
+                                logPrint("connecti", "rr switch to 115200: " + retStr);
                             }
                         }
                     }
                 }
             }
-
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            logErrPrint("connecti error: " + Log.getStackTraceString(e));
         } finally {
             try {
                 if (outputStream != null) {
@@ -476,87 +408,31 @@ public class UHFRManager {
                 if (serialPort != null) {
                     serialPort.close(port);
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException ignored) {
             }
         }
-        if (type == 0) {
-            client = new GClient();
-            if (isF) {
-                client.openAndroidSerial("/dev/ttyS1", 0);
-                onTagHandler();
-
-                try {
-                    Thread.sleep(100L);
-                } catch (InterruptedException var1) {
-                    var1.printStackTrace();
-                }
-            } else {
-                if (client.openHdSerial("0:115200", 0)) {
-                    onTagHandler();
-                    client.hdPowerOn();
-                    try {
-                        Thread.sleep(100L);
-                    } catch (InterruptedException var1) {
-                        var1.printStackTrace();
-                    }
-                    return true;
-                }
-            }
-        } else if (type == 1) {
-            reader = new Reader();
-            READER_ERR er;
-            long enterTime = SystemClock.elapsedRealtime();
-            if (isF) {
-                if (isE710) {
-                    // E710 波特率921600
-                    er = reader.InitReader_Notype("/dev/ttyS1:921600", 1);
-                } else {
-                    // R2000 波特率115200
-                    er = reader.InitReader_Notype("/dev/ttyS1", 1);
-                }
-            } else {
-                if (isE710) {
-                    // E710 波特率921600
-                    er = reader.InitReader_Notype("/dev/ttyMT1:921600", 1);
-                } else {
-                    // R2000 波特率115200
-                    er = reader.InitReader_Notype("/dev/ttyMT1:115200", 1);
-                }
-            }
-
-            long outTime = SystemClock.elapsedRealtime();
-            Log.i("zeng-", "InitReader cusTime: " + (outTime - enterTime));
-            if (er == READER_ERR.MT_OK_ERR) {
-                if (connect2()) {
-                    return true;
-                }
-            }
-            reader.CloseReader();
-        } else if (type == 3) {
-            int result = -1;
-            if (isF) {
-                result = RrReader.connect("/dev/ttyS1", 115200, DEBUG ? 1 : 0);
-            } else {
-                result = RrReader.connect("/dev/ttyMT1", 115200, DEBUG ? 1 : 0);
-
-            }
-            if (result == 0) {
-                RrReader.rrlib.SetCallBack(callback);
-                return true;
-            } else {
-                logPrint("Rr connect error: " + result);
-            }
-        }
-        new SerialPort().power_5Voff();
-        new SerialPort().rfid_poweroff();
-        if (isF) {
-            new SerialPort().dc_en_off();
-        }
-//        new SerialPort().scaner_poweroff();
-        return false;
     }
 
+    private static final byte[] bytes = new byte[128];
+
+    private static String writeCmd(OutputStream os, InputStream is, int timeout, String cmd) throws IOException {
+        int available = 0;
+        int read = 0;
+        int retryCount = 0;
+        int maxRetryCount = timeout / 2;
+        os.write(Tools.HexString2Bytes(cmd));
+        os.flush();
+        while (available <= 0 && retryCount < maxRetryCount) {
+            SystemClock.sleep(2);
+            available = is.available();
+            retryCount++;
+        }
+        if (available > 0) {
+            SystemClock.sleep(10);// 等待串口数据传输完整
+            read = is.read(bytes);
+        }
+        return Tools.Bytes2HexString(bytes, read);
+    }
 
     private static boolean isE710 = false;
 
@@ -3803,7 +3679,6 @@ public class UHFRManager {
         }
         return er;
     }
-
 
 
 }
