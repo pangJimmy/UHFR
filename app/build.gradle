@@ -90,7 +90,7 @@ sync_aars.dependsOn(cleanJarDir)
 task aMakeJar(type: Jar) {
     println("makeJar")
     //指定生成的jar名
-    baseName 'UHF67_v3.8.6'
+    baseName 'UHF67_v3.8.7'
     //从哪里打包class文件
     from "build/intermediates/javac/debug/classes/"
     configurations.tempConfig.findAll {
@@ -107,15 +107,14 @@ task aMakeJar(type: Jar) {
     exclude('/com/handheld/uhfr/BuildConfig.class')
     exclude('/com/handheld/uhfr/UHFRManagerBank.class')
     exclude('/com/handheld/uhfrdemo')
-//    exclude('/cn/pda/serialport')
-//    exclude('/cn/pda/serialport/SerialPort.class')
-//    exclude('/cn/pda/serialport/Tools.class')
+    exclude('/cn/')
+    exclude('/android/')
 
     //此段代码将相关信息写到META-INF文件中的MANEFEST.MF文件
     manifest {
         attributes(
                 'Implementation-Title': "uhfr",
-                'Implementation-Version': "3.8.6",
+                'Implementation-Version': "3.8.7",
                 'Built-Date': new Date().getDateTimeString(),
                 'Built-With':
                         "gradle-${project.getGradle().getGradleVersion()},groovy-${GroovySystem.getVersion()}",
@@ -125,3 +124,37 @@ task aMakeJar(type: Jar) {
 }
 aMakeJar.mustRunAfter(sync_aars)
 aMakeJar.dependsOn(sync_aars)
+
+// 打包安卓通用串口库
+task makeAndroidSerialJar(type: Zip) {
+    println("makeAndroidJar")
+    // 指定生成的 jar 名（扩展名设为 .jar）
+    archiveBaseName = 'AndroidSerialPort'
+    archiveExtension = 'jar'
+    // 从哪里打包 class 文件
+    from "build/intermediates/javac/debug/classes/"
+    // 排除不需要的包
+    exclude('/cn/')
+    exclude('/com/')
+    // 排除源中可能存在的 META-INF（如果有的话）
+    exclude('META-INF/**')
+    // 输出目录
+    destinationDir(file('build/libs'))
+}
+
+// 打包公司专用串口库
+task makeHDHLSerialJar(type: Zip) {
+    println("makeHDHLSerialJar")
+    // 指定生成的 jar 名（扩展名设为 .jar）
+    archiveBaseName = 'HDHLSerialPort'
+    archiveExtension = 'jar'
+    // 从哪里打包 class 文件
+    from "build/intermediates/javac/debug/classes/"
+    // 排除不需要的包
+    exclude('/com/')
+    exclude('/android/')
+    // 排除源中可能存在的 META-INF（如果有的话）
+    exclude('META-INF/**')
+    // 输出目录
+    destinationDir(file('build/libs'))
+}
