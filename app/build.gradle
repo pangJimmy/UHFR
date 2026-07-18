@@ -90,7 +90,7 @@ sync_aars.dependsOn(cleanJarDir)
 task aMakeJar(type: Jar) {
     println("makeJar")
     //指定生成的jar名
-    baseName 'UHF67_v3.8.7'
+    baseName 'UHF67_v3.8.8'
     //从哪里打包class文件
     from "build/intermediates/javac/debug/classes/"
     configurations.tempConfig.findAll {
@@ -114,7 +114,7 @@ task aMakeJar(type: Jar) {
     manifest {
         attributes(
                 'Implementation-Title': "uhfr",
-                'Implementation-Version': "3.8.7",
+                'Implementation-Version': "3.8.8",
                 'Built-Date': new Date().getDateTimeString(),
                 'Built-With':
                         "gradle-${project.getGradle().getGradleVersion()},groovy-${GroovySystem.getVersion()}",

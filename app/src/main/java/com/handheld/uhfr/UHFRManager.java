@@ -501,6 +501,14 @@ public class UHFRManager {
             ipst.potls[0] = ipl;
         }
         READER_ERR er = reader.ParamSet(Mtr_Param.MTR_PARAM_TAG_INVPOTL, ipst);
+        HardwareDetails val = reader.new HardwareDetails();
+        READER_ERR er2 = reader.GetHardwareDetails(val);
+        if (er2 == READER_ERR.MT_OK_ERR) {
+            if (val.module.value() == 23){
+                // 欧标E710，波特率115200
+                isE710 = true;
+            }
+        }
         long outTime = SystemClock.elapsedRealtime();
         Log.i("zeng-", "connect2 cusTime: " + (outTime - enterTime));
         return er == READER_ERR.MT_OK_ERR;
